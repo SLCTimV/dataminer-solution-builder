@@ -115,7 +115,8 @@ Console.WriteLine();
 // Create output directories
 var adhocsMdDir  = Path.Combine(setupContentDir, "adhocs");
 var scriptsMdDir = Path.Combine(setupContentDir, "scripts");
-var skillsMdDir  = Path.Combine(setupContentDir, "skills");
+var skillFolderName = $"{solutionName.ToLowerInvariant()}-skill";
+var skillsMdDir  = Path.Combine(setupContentDir, "skills", skillFolderName);
 
 Directory.CreateDirectory(adhocsMdDir);
 Directory.CreateDirectory(scriptsMdDir);
@@ -165,7 +166,7 @@ Console.WriteLine("[3/3] Generating skill md file...");
 
 var skillMdPath = Path.Combine(skillsMdDir, "SKILL.md");
 WriteSkillMd(skillMdPath, solutionName, apiName, models, subObjects, apiRoute, gqiProjectName, udapiProjectName);
-Console.WriteLine($"   ✓ SKILL.md");
+Console.WriteLine($"   ✓ skills/{skillFolderName}/SKILL.md");
 
 Console.WriteLine();
 Console.WriteLine($"✅ Assistant md files generated at: {setupContentDir}");

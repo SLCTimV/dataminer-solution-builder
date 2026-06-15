@@ -141,7 +141,17 @@ Console.WriteLine($"   ✓ Created {gqiProjectName} and added to {backendSolutio
 Console.WriteLine("[2/6] Configuring .csproj...");
 
 var csprojPath = Path.Combine(gqiProjectDir, $"{gqiProjectName}.csproj");
-WriteCsproj(csprojPath, nugetPackageId);
+
+// Resolve actual devpack version from the built nupkg
+var devpackVersion = "1.0.1";
+var nupkgFiles = Directory.GetFiles(devpackNugetDir, $"{nugetPackageId}.*.nupkg");
+if (nupkgFiles.Length > 0)
+{
+    var nupkgName = Path.GetFileNameWithoutExtension(nupkgFiles[0]);
+    devpackVersion = nupkgName[(nugetPackageId.Length + 1)..];
+}
+
+WriteCsproj(csprojPath, nugetPackageId, devpackVersion);
 
 // Ensure nuget.config exists with local source for the devpack
 var nugetConfigPath = Path.Combine(backendSolutionDir, "nuget.config");
@@ -260,7 +270,7 @@ return 0;
 // Helper methods
 // ═══════════════════════════════════════════════════════════════════════════
 
-void WriteCsproj(string path, string nugetPkgId)
+void WriteCsproj(string path, string nugetPkgId, string devpackVer)
 {
     var sb = new StringBuilder();
     sb.AppendLine("""<Project Sdk="Skyline.DataMiner.Sdk">""");
@@ -276,10 +286,10 @@ void WriteCsproj(string path, string nugetPkgId)
     sb.AppendLine("    <VersionComment>Initial Version</VersionComment>");
     sb.AppendLine("  </PropertyGroup>");
     sb.AppendLine("  <ItemGroup>");
-    sb.AppendLine($"    <PackageReference Include=\"{nugetPkgId}\" Version=\"*\" />");
-    sb.AppendLine("    <PackageReference Include=\"Skyline.DataMiner.Dev.Common\" Version=\"10.6.*\" />");
-    sb.AppendLine("    <PackageReference Include=\"Skyline.DataMiner.Files.SLAnalyticsTypes\" Version=\"10.6.*\" />");
-    sb.AppendLine("    <PackageReference Include=\"Skyline.DataMiner.SDM.UserDefinedApi.Runtime\" Version=\"1.*\" />");
+    sb.AppendLine($"    <PackageReference Include=\"{nugetPkgId}\" Version=\"{devpackVer}\" />");
+    sb.AppendLine("    <PackageReference Include=\"Skyline.DataMiner.Dev.Common\" Version=\"10.6.7\" />");
+    sb.AppendLine("    <PackageReference Include=\"Skyline.DataMiner.Files.SLAnalyticsTypes\" Version=\"10.6.7\" />");
+    sb.AppendLine("    <PackageReference Include=\"Skyline.DataMiner.SDM.UserDefinedApi.Runtime\" Version=\"1.0.1\" />");
     sb.AppendLine("  </ItemGroup>");
     sb.AppendLine("</Project>");
     File.WriteAllText(path, sb.ToString());
