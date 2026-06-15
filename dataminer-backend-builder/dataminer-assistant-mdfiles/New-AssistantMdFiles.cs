@@ -91,9 +91,9 @@ if (!Directory.Exists(packageProjectDir))
 }
 
 // ---------------------------------------------------------------------------
-// Guard: openapi.yaml must exist
+// Guard: openapi.yaml must exist (in UDAPI build output)
 // ---------------------------------------------------------------------------
-var openapiPath = Path.Combine(backendSolutionDir, "openapi.yaml");
+var openapiPath = Path.Combine(backendSolutionDir, udapiProjectName, "bin", "Debug", "net48", "openapi", "openapi.yaml");
 if (!File.Exists(openapiPath))
 {
     Console.Error.WriteLine($"Error: openapi.yaml not found at {openapiPath}");

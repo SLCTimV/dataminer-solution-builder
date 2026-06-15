@@ -91,7 +91,7 @@ var enums      = config.Enums ?? new List<EnumConfig>();
 // Locate files
 // ---------------------------------------------------------------------------
 var backendSolutionDir = Path.Combine(outputDir, backendSolutionName);
-var openapiPath        = Path.Combine(backendSolutionDir, "openapi.yaml");
+var openapiPath        = Path.Combine(backendSolutionDir, udapiProjectName, "bin", "Debug", "net48", "openapi", "openapi.yaml");
 var packageProjectDir  = Path.Combine(backendSolutionDir, $"{backendSolutionName}.Package");
 var setupContentDir    = Path.Combine(packageProjectDir, "SetupContent");
 var frontendDir        = Path.Combine(outputDir, frontendFolderName);

@@ -86,7 +86,7 @@ dotnet run dataminer-backend-builder/dataminer-backend-installer/New-BackendInst
 - Generates `OnApiTrigger.cs`, `UserDefinedApiExtensions.cs`, `ErrorResponse.cs`
 - Generates query parameter helpers
 - Generates one controller per model with full CRUD (GET/POST/PUT/DELETE)
-- Generates `openapi.yaml` spec
+- Generates `openapi.yaml` spec (in build output at `bin/Debug/net48/openapi/openapi.yaml`)
 - Builds the project
 
 ### Step 3 — New-Adhoc.cs (6 internal steps)
@@ -119,7 +119,6 @@ dotnet run dataminer-backend-builder/dataminer-backend-installer/New-BackendInst
 └── {Name}Backend/                   ← Backend (produced by this pipeline)
     ├── {Name}Backend.slnx
     ├── nuget.config
-    ├── openapi.yaml
     ├── {Name}UDAPI/                 ← UDAPI automation script
     │   ├── Controllers/
     │   ├── OnApiTrigger.cs

@@ -718,14 +718,6 @@ void Step8_BuildUdapi()
 
     Dotnet(backendSolutionDir, "build", $".\\{udapiProjectName}\\{udapiProjectName}.csproj");
 
-    // Copy openapi.yaml if generated
-    var openapiSource = Path.Combine(backendSolutionDir, udapiProjectName, "bin", "Debug", "net48", "openapi", "openapi.yaml");
-    if (File.Exists(openapiSource))
-    {
-        File.Copy(openapiSource, Path.Combine(backendSolutionDir, "openapi.yaml"), overwrite: true);
-        Console.WriteLine("  Copied openapi.yaml to solution root.");
-    }
-
     Console.WriteLine("[8/8] Done.");
 }
 
