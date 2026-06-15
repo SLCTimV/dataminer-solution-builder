@@ -288,19 +288,52 @@ documented in the skill. RequestMethod codes: 1=GET, 3=POST, 4=PUT, 5=DELETE.
 
 ## Running the Builder
 
+### Full Pipeline (3 steps)
+
+#### Step 1 — Collect context (New-UiBuilder.cs)
+
 ```bash
-dotnet run dataminer-frontend-builder/New-Frontend.cs -- \
+dotnet run dataminer-frontend-builder/dataminer-ui-builder/New-UiBuilder.cs -- \
   --input-yaml <path-to-input.yaml> \
   --output-dir <output-directory> \
   [--solution-description <path-to-SolutionDescription.md>]
 ```
 
-The script:
+This script:
 1. Reads the input YAML to determine solution name, models, api route, etc.
 2. Locates the Backend output folder for `openapi.yaml` and `SetupContent/` files
-3. Collects all context files into a structured prompt
-4. Invokes the DataMiner App Builder agent
-5. Writes the generated code to `<OutputDir>/<SolutionName>Frontend/`
+3. Collects all context files into a structured `AGENT_PROMPT.md`
+4. Writes the prompt to `<OutputDir>/<SolutionName>Frontend/AGENT_PROMPT.md`
+
+#### Step 2 — Generate frontend code (DataMiner App Builder agent)
+
+Invoke the **DataMiner App Builder** agent with the contents of `AGENT_PROMPT.md`.
+The agent generates the full React + Vite SPA source code in `<OutputDir>/<SolutionName>Frontend/`.
+
+After the agent completes:
+- Run `npm install` in the frontend folder
+- Run `npm run build` to produce the `dist/` output
+
+#### Step 3 — Package the frontend (New-UiInstaller.cs)
+
+```bash
+dotnet run dataminer-frontend-builder/dataminer-ui-installer/New-UiInstaller.cs -- \
+  --input-yaml <path-to-input.yaml> \
+  --output-dir <output-directory>
+```
+
+This script:
+1. Creates a new DataMiner package project (`<SolutionName>Frontend.Package/`)
+2. Copies `dist/*` into `PackageContent/CompanionFiles/Skyline DataMiner/Webpages/Public/<SolutionName>/`
+3. Builds the package project
+
+The resulting `.dmapp` deploys the frontend to `http://<dm-host>/public/<SolutionName>/index.html`.
+
+### Re-packaging after changes
+
+If the frontend code is modified after initial generation:
+1. Run `npm run build` in the frontend folder to regenerate `dist/`
+2. Re-run `New-UiInstaller.cs` — it cleans and re-copies the build output to the package
 
 ---
 
