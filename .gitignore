@@ -1,0 +1,24 @@
+# Test output
+ModelAnalyzerTest/
+TestFolder/
+
+# .NET
+bin/
+obj/
+*.nupkg
+*.snupkg
+
+# NuGet
+packages/
+*.nuget.props
+*.nuget.targets
+
+# IDE
+.vs/
+*.user
+*.suo
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
