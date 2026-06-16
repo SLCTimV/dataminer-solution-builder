@@ -120,7 +120,7 @@ if (!IsDotnetAvailable())
 // ---------------------------------------------------------------------------
 // Step 1: Create Aspire folder structure
 // ---------------------------------------------------------------------------
-Console.WriteLine("[1/6] Creating Aspire folder structure...");
+Console.WriteLine("[1/7] Creating Aspire folder structure...");
 
 if (Directory.Exists(aspireDir))
 {
@@ -142,7 +142,7 @@ Directory.CreateDirectory(Path.Combine(appHostDir, "Properties"));
 // ---------------------------------------------------------------------------
 // Step 2: Write nuget.config (workspace-level, points to local packages)
 // ---------------------------------------------------------------------------
-Console.WriteLine("[2/6] Writing nuget.config...");
+Console.WriteLine("[2/7] Writing nuget.config...");
 
 // Write nuget.config into the Aspire folder
 var aspireNugetConfigPath = Path.Combine(aspireDir, "nuget.config");
@@ -169,7 +169,7 @@ Console.WriteLine("  Created nuget.config");
 // ---------------------------------------------------------------------------
 // Step 3: Write ServiceDefaults project
 // ---------------------------------------------------------------------------
-Console.WriteLine("[3/6] Writing ServiceDefaults project...");
+Console.WriteLine("[3/7] Writing ServiceDefaults project...");
 
 File.WriteAllText(Path.Combine(serviceDefaultsDir, "AspireSDM.ServiceDefaults.csproj"), """
 <Project Sdk="Microsoft.NET.Sdk">
@@ -272,7 +272,7 @@ public static class Extensions
 // ---------------------------------------------------------------------------
 // Step 4: Write ApiService project (mock DataMiner Web API + static file hosting)
 // ---------------------------------------------------------------------------
-Console.WriteLine("[4/6] Writing ApiService project...");
+Console.WriteLine("[4/7] Writing ApiService project...");
 
 File.WriteAllText(Path.Combine(apiServiceDir, "AspireSDM.ApiService.csproj"), """
 <Project Sdk="Microsoft.NET.Sdk.Web">
@@ -455,7 +455,7 @@ File.WriteAllText(Path.Combine(apiServiceDir, "Properties", "launchSettings.json
 // ---------------------------------------------------------------------------
 // Step 5: Write AppHost project (orchestrates everything)
 // ---------------------------------------------------------------------------
-Console.WriteLine("[5/6] Writing AppHost project...");
+Console.WriteLine("[5/7] Writing AppHost project...");
 
 // Normalize paths for C# string literals (use forward slashes)
 var udapiDllForward   = udapiDllPath.Replace("\\", "/");
@@ -503,6 +503,7 @@ builder.AddAutomationHost("automationhost", port: 7001);
 // ApiService: mock DataMiner Web API + frontend static files
 var apiService = builder.AddProject<Projects.AspireSDM_ApiService>("dataminerwebapi")
     .WithEnvironment("ScriptHost__HttpUrl", "http://localhost:7001")
+    .WithHttpEndpoint(port: 5000)
     .WithExternalHttpEndpoints()
     .WithHttpHealthCheck("/health");
 
@@ -590,9 +591,62 @@ File.WriteAllText(Path.Combine(apiServiceDir, "appsettings.Development.json"), $
 """);
 
 // ---------------------------------------------------------------------------
-// Step 6: Write aspire.config.json at workspace root + solution file
+// Step 6: Patch frontend vite.config.js with API proxy
 // ---------------------------------------------------------------------------
-Console.WriteLine("[6/6] Writing aspire.config.json and solution...");
+Console.WriteLine("[6/7] Patching frontend vite.config.js with API proxy...");
+
+var viteConfigPath = Path.Combine(frontendDir, "vite.config.js");
+if (!File.Exists(viteConfigPath))
+    viteConfigPath = Path.Combine(frontendDir, "vite.config.ts");
+
+if (File.Exists(viteConfigPath))
+{
+    var viteContent = File.ReadAllText(viteConfigPath);
+    if (viteContent.Contains("/API"))
+    {
+        Console.WriteLine("  vite.config already has API proxy — skipping");
+    }
+    else
+    {
+        // Rewrite the file with the server.proxy block injected
+        var serverBlock = """
+  server: {
+    port: 5173,
+    proxy: {
+      '/API': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+      '/auth': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+""";
+        // Strategy: insert before the final `});` that closes defineConfig({...})
+        var idx = viteContent.LastIndexOf("});");
+        if (idx >= 0)
+        {
+            viteContent = viteContent[..idx] + serverBlock + viteContent[idx..];
+            File.WriteAllText(viteConfigPath, viteContent);
+            Console.WriteLine($"  Patched {Path.GetFileName(viteConfigPath)} with API proxy → http://localhost:5000");
+        }
+        else
+        {
+            Console.WriteLine($"  Warning: could not find closing '}});' in {Path.GetFileName(viteConfigPath)} — patch manually");
+        }
+    }
+}
+else
+{
+    Console.WriteLine($"  Warning: no vite.config.js/ts found in {frontendDir} — frontend API calls may not work");
+}
+
+// ---------------------------------------------------------------------------
+// Step 7: Write aspire.config.json at workspace root + solution file
+// ---------------------------------------------------------------------------
+Console.WriteLine("[7/7] Writing aspire.config.json and solution...");
 
 File.WriteAllText(Path.Combine(aspireDir, "aspire.config.json"), """
 {
