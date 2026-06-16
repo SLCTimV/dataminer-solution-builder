@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x86</PlatformTarget>
+    <AssemblyName>AutomationHost</AssemblyName>
+    <RootNamespace>AutomationHost</RootNamespace>
+
+    <!-- NuGet package metadata -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Skyline.DataMiner.Aspire.AutomationHost</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Skyline Communications</Authors>
+    <Description>DataMiner Automation Host — runs .NET Framework 4.8 automation script DLLs via HTTP. Used as an Aspire resource for local development.</Description>
+    <PackageTags>dataminer;aspire;automation;scripthost</PackageTags>
+
+    <!-- Pack the exe + deps into tools/net48 so consumers get the binary -->
+    <PackAsTool>false</PackAsTool>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <ContentTargetFolders>tools\net48</ContentTargetFolders>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <BuildOutputTargetFolder>tools\net48</BuildOutputTargetFolder>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Skyline.DataMiner.Dev.Automation" Version="10.4.0.24" />
+    <PackageReference Include="Skyline.DataMiner.Utils.DOM" Version="10.5.2.5" />
+    <PackageReference Include="StreamJsonRpc" Version="2.20.20" />
+  </ItemGroup>
+
+  <!-- Include all build output files into the tools folder in the NuGet package -->
+  <Target Name="IncludeAllOutputInPack" AfterTargets="Build" Condition="'$(GeneratePackageOnBuild)' == 'true' OR '$(IsPackable)' == 'true'">
+    <ItemGroup>
+      <None Include="$(OutputPath)**\*.*" Pack="true" PackagePath="tools\net48" />
+    </ItemGroup>
+  </Target>
+
+  <!-- Include the .props file so consuming projects get the AutomationHostExePath property -->
+  <ItemGroup>
+    <None Include="build\**" Pack="true" PackagePath="build" />
+  </ItemGroup>
+
+</Project>

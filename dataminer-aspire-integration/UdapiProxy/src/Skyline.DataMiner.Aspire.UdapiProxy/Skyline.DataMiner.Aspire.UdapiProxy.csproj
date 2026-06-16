@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>UdapiProxy</AssemblyName>
+    <RootNamespace>Skyline.DataMiner.Aspire.UdapiProxy</RootNamespace>
+
+    <!-- NuGet package metadata -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Skyline.DataMiner.Aspire.UdapiProxy</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Skyline Communications</Authors>
+    <Description>DataMiner UDAPI Proxy — translates REST HTTP requests to ApiTriggerInput, forwards to AutomationHost, and returns ApiTriggerOutput as HTTP responses. Includes Scalar OpenAPI UI. Used as an Aspire resource for local development.</Description>
+    <PackageTags>dataminer;aspire;udapi;proxy;openapi;scalar</PackageTags>
+
+    <!-- Pack the published app into tools/net10.0 -->
+    <PackAsTool>false</PackAsTool>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Scalar.AspNetCore" Version="2.4.18" />
+  </ItemGroup>
+
+  <!-- Include all published output in the NuGet package -->
+  <ItemGroup>
+    <Content Include="bin\Release\net10.0\publish\**\*.*" Pack="true" PackagePath="tools\net10.0" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
+  <!-- Include the .props file so consuming projects get the UdapiProxyExePath property -->
+  <ItemGroup>
+    <None Include="build\**" Pack="true" PackagePath="build" />
+  </ItemGroup>
+
+</Project>

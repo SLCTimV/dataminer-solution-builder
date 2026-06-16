@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>DllWatcher</AssemblyName>
+    <RootNamespace>Skyline.DataMiner.Aspire.DllWatcher</RootNamespace>
+
+    <!-- NuGet package metadata -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Skyline.DataMiner.Aspire.DllWatcher</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Skyline Communications</Authors>
+    <Description>DataMiner DLL Watcher — monitors automation script and backend DLL files for changes, then signals the AutomationHost to save state and restart. Used as an Aspire resource for local development hot-reload.</Description>
+    <PackageTags>dataminer;aspire;dllwatcher;hotreload</PackageTags>
+
+    <!-- Pack the published app into tools/net10.0 -->
+    <PackAsTool>false</PackAsTool>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <NoPackageAnalysis>true</NoPackageAnalysis>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+  </ItemGroup>
+
+  <!-- Include all published output in the NuGet package -->
+  <ItemGroup>
+    <Content Include="bin\Release\net10.0\publish\**\*.*" Pack="true" PackagePath="tools\net10.0" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
+  <!-- Include the .props file -->
+  <ItemGroup>
+    <None Include="build\**" Pack="true" PackagePath="build" />
+  </ItemGroup>
+
+</Project>

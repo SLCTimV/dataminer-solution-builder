@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <DllWatcherExePath>$(MSBuildThisFileDirectory)..\tools\net10.0\DllWatcher.exe</DllWatcherExePath>
+  </PropertyGroup>
+</Project>

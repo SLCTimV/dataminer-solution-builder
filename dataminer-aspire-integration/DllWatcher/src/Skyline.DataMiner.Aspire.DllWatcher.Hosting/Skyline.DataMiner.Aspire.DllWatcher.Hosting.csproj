@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- NuGet package metadata -->
+    <IsPackable>true</IsPackable>
+    <PackageId>Skyline.DataMiner.Aspire.DllWatcher.Hosting</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Skyline Communications</Authors>
+    <Description>Aspire hosting extension for DataMiner DLL Watcher. Provides AddDllWatcher() to register a file-watching sidecar that hot-reloads the AutomationHost on DLL changes.</Description>
+    <PackageTags>dataminer;aspire;dllwatcher;hosting;hotreload</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting" Version="9.3.0" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,5 @@
+<Project>
+  <PropertyGroup>
+    <UdapiProxyExePath>$(MSBuildThisFileDirectory)..\tools\net10.0\UdapiProxy.exe</UdapiProxyExePath>
+  </PropertyGroup>
+</Project>
