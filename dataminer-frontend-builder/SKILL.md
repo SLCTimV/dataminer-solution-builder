@@ -164,9 +164,11 @@ const SCRIPT_FOLDER = '';
 ```javascript
 const outputEntry = result?.ScriptOutput?.find(o => o.Key === 'ApiTriggerOutput');
 const parsed = JSON.parse(outputEntry.Value);
-// parsed.ResponseCode (200, 201, 404, etc.)
-// parsed.ResponseBody (JSON string of the actual data)
-return JSON.parse(parsed.ResponseBody);
+// parsed.ResponseCode (200, 201, 204, 404, etc.)
+// parsed.ResponseBody (JSON string of the actual data — may be empty/null for DELETE 204)
+if (parsed.ResponseCode >= 400) throw new Error(`API error ${parsed.ResponseCode}`);
+if (!parsed.ResponseBody) return null;
+try { return JSON.parse(parsed.ResponseBody); } catch { return parsed.ResponseBody; }
 ```
 
 ### 5. Styling — Skyline Dark Theme

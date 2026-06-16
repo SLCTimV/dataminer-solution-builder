@@ -369,7 +369,7 @@ app.MapPost("/API/v1/Json.asmx/ExecuteAutomationScriptWithOutput", async (HttpCo
     using var reader = new StreamReader(context.Request.Body);
     var body = await reader.ReadToEndAsync();
     var request = JsonConvert.DeserializeObject<dynamic>(body);
-    string scriptName = request?.Script?.Name ?? "unknown";
+    string scriptName = (string)(request?.script?.Name ?? request?.Script?.Name ?? "unknown");
 
     var config = context.RequestServices.GetRequiredService<IConfiguration>();
     var scriptDllPath = config[$"ScriptHost:Scripts:{scriptName}"];
@@ -377,9 +377,10 @@ app.MapPost("/API/v1/Json.asmx/ExecuteAutomationScriptWithOutput", async (HttpCo
         return Results.BadRequest(new { error = $"Unknown script: '{scriptName}'" });
 
     var parameters = new Dictionary<string, string>();
-    if (request?.Script?.Parameters != null)
+    var scriptParams = request?.script?.Parameters ?? request?.Script?.Parameters;
+    if (scriptParams != null)
     {
-        foreach (var p in request.Script.Parameters)
+        foreach (var p in scriptParams)
         {
             string? name = p.Name?.ToString();
             string? value = p.Value?.ToString();

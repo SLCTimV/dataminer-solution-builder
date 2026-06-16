@@ -328,6 +328,8 @@ prompt.AppendLine("```");
 prompt.AppendLine();
 prompt.AppendLine("Script parameter: ParameterId=2, Name='ApiTriggerInput', Value=apiTriggerInput");
 prompt.AppendLine("Response: ScriptOutput key 'ApiTriggerOutput' → JSON with ResponseCode + ResponseBody");
+prompt.AppendLine("IMPORTANT: For DELETE/PUT 204 responses, ApiTriggerOutput may be '{}' (empty object).");
+prompt.AppendLine("Always guard: if (!parsed.ResponseBody) return null; and wrap JSON.parse in try/catch.");
 prompt.AppendLine();
 
 // ---------------------------------------------------------------------------

@@ -69,12 +69,13 @@ dotnet run dataminer-aspire-integration/New-AspireIntegration.cs -- --input-yaml
 
 | Step | Description |
 |------|-------------|
-| 1/6 | Create Aspire folder structure (`<Name>Aspire/`) |
-| 2/6 | Write `nuget.config` with local package source mapping |
-| 3/6 | Write `AspireSDM.ServiceDefaults` project (OpenTelemetry, health checks) |
-| 4/6 | Write `AspireSDM.ApiService` project (mock DataMiner Web API + static files) |
-| 5/6 | Write `AspireSDM.AppHost` project (Aspire orchestrator with all resources) |
-| 6/6 | Write `aspire.config.json` and `.slnx` solution file |
+| 1/7 | Create Aspire folder structure (`<Name>Aspire/`) |
+| 2/7 | Write `nuget.config` with local package source mapping |
+| 3/7 | Write `<Name>.ServiceDefaults` project (OpenTelemetry, health checks) |
+| 4/7 | Write `<Name>.ApiService` project (mock DataMiner Web API + static files, port 5000) |
+| 5/7 | Write `<Name>.AppHost` project (Aspire orchestrator with all resources) |
+| 6/7 | Patch frontend `vite.config.js` with API proxy (`/API` + `/auth` → localhost:5000) |
+| 7/7 | Write `aspire.config.json` and `.slnx` solution file |
 
 ## Output Structure
 
@@ -83,20 +84,20 @@ dotnet run dataminer-aspire-integration/New-AspireIntegration.cs -- --input-yaml
 └── <SolutionName>Aspire/
     ├── nuget.config
     ├── aspire.config.json
-    ├── <SolutionName>Aspire.slnx
-    ├── AspireSDM.AppHost/
+    ├── <SolutionName>.slnx
+    ├── <SolutionName>.AppHost/
     │   ├── AppHost.cs
-    │   ├── AspireSDM.AppHost.csproj
+    │   ├── <SolutionName>.AppHost.csproj
     │   ├── appsettings.json
     │   └── Properties/launchSettings.json
-    ├── AspireSDM.ApiService/
+    ├── <SolutionName>.ApiService/
     │   ├── Program.cs
-    │   ├── AspireSDM.ApiService.csproj
+    │   ├── <SolutionName>.ApiService.csproj
     │   ├── appsettings.json
     │   └── appsettings.Development.json
-    └── AspireSDM.ServiceDefaults/
+    └── <SolutionName>.ServiceDefaults/
         ├── Extensions.cs
-        └── AspireSDM.ServiceDefaults.csproj
+        └── <SolutionName>.ServiceDefaults.csproj
 ```
 
 ## Architecture
@@ -120,15 +121,18 @@ Aspire AppHost (orchestrator)
 
 ```powershell
 # Start Aspire
-dotnet run --project "<OutputDir>/<Name>Aspire/AspireSDM.AppHost" --launch-profile http
+dotnet run --project "<OutputDir>/<Name>Aspire/<Name>.AppHost" --launch-profile http
 
 # Aspire Dashboard (resource status, logs, traces)
 # → http://localhost:15146
 
+# Mock DataMiner Web API (ApiService, fixed port)
+# → http://localhost:5000
+
 # Scalar OpenAPI UI (test UDAPI endpoints)
 # → http://localhost:5180/scalar/v1
 
-# Frontend dev server
+# Frontend dev server (proxies /API + /auth to ApiService)
 # → http://localhost:5173
 ```
 
