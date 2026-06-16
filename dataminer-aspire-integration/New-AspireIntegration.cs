@@ -130,9 +130,9 @@ if (Directory.Exists(aspireDir))
 
 Directory.CreateDirectory(aspireDir);
 
-var appHostDir       = Path.Combine(aspireDir, "AspireSDM.AppHost");
-var serviceDefaultsDir = Path.Combine(aspireDir, "AspireSDM.ServiceDefaults");
-var apiServiceDir    = Path.Combine(aspireDir, "AspireSDM.ApiService");
+var appHostDir       = Path.Combine(aspireDir, $"{solutionName}.AppHost");
+var serviceDefaultsDir = Path.Combine(aspireDir, $"{solutionName}.ServiceDefaults");
+var apiServiceDir    = Path.Combine(aspireDir, $"{solutionName}.ApiService");
 
 Directory.CreateDirectory(appHostDir);
 Directory.CreateDirectory(serviceDefaultsDir);
@@ -171,7 +171,7 @@ Console.WriteLine("  Created nuget.config");
 // ---------------------------------------------------------------------------
 Console.WriteLine("[3/7] Writing ServiceDefaults project...");
 
-File.WriteAllText(Path.Combine(serviceDefaultsDir, "AspireSDM.ServiceDefaults.csproj"), """
+File.WriteAllText(Path.Combine(serviceDefaultsDir, $"{solutionName}.ServiceDefaults.csproj"), """
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
@@ -274,7 +274,7 @@ public static class Extensions
 // ---------------------------------------------------------------------------
 Console.WriteLine("[4/7] Writing ApiService project...");
 
-File.WriteAllText(Path.Combine(apiServiceDir, "AspireSDM.ApiService.csproj"), """
+File.WriteAllText(Path.Combine(apiServiceDir, $"{solutionName}.ApiService.csproj"), $$"""
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
@@ -285,7 +285,7 @@ File.WriteAllText(Path.Combine(apiServiceDir, "AspireSDM.ApiService.csproj"), ""
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AspireSDM.ServiceDefaults\AspireSDM.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\{{solutionName}}.ServiceDefaults\{{solutionName}}.ServiceDefaults.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -463,7 +463,7 @@ var devpackDllForward = devpackDllPath.Replace("\\", "/");
 var openApiForward    = openApiPath.Replace("\\", "/");
 var frontendForward   = frontendDir.Replace("\\", "/");
 
-File.WriteAllText(Path.Combine(appHostDir, "AspireSDM.AppHost.csproj"), """
+File.WriteAllText(Path.Combine(appHostDir, $"{solutionName}.AppHost.csproj"), $"""
 <Project Sdk="Aspire.AppHost.Sdk/13.4.4">
 
   <PropertyGroup>
@@ -474,7 +474,7 @@ File.WriteAllText(Path.Combine(appHostDir, "AspireSDM.AppHost.csproj"), """
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AspireSDM.ApiService\AspireSDM.ApiService.csproj" />
+    <ProjectReference Include="..\{solutionName}.ApiService\{solutionName}.ApiService.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -501,7 +501,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 builder.AddAutomationHost("automationhost", port: 7001);
 
 // ApiService: mock DataMiner Web API + frontend static files
-var apiService = builder.AddProject<Projects.AspireSDM_ApiService>("dataminerwebapi")
+var apiService = builder.AddProject<Projects.{{solutionName}}_ApiService>("dataminerwebapi")
     .WithEnvironment("ScriptHost__HttpUrl", "http://localhost:7001")
     .WithHttpEndpoint(port: 5000)
     .WithExternalHttpEndpoints()
@@ -648,22 +648,22 @@ else
 // ---------------------------------------------------------------------------
 Console.WriteLine("[7/7] Writing aspire.config.json and solution...");
 
-File.WriteAllText(Path.Combine(aspireDir, "aspire.config.json"), """
+File.WriteAllText(Path.Combine(aspireDir, "aspire.config.json"), $$"""
 {
     "appHost": {
-        "path": "AspireSDM.AppHost\\AspireSDM.AppHost.csproj"
+        "path": "{{solutionName}}.AppHost\\{{solutionName}}.AppHost.csproj"
     }
 }
 """);
 
 // Create .slnx solution
-Dotnet(aspireDir, "new", "sln", "-n", "AspireSDM", "--force");
-Dotnet(aspireDir, "sln", "AspireSDM.slnx", "add",
-    "AspireSDM.AppHost/AspireSDM.AppHost.csproj");
-Dotnet(aspireDir, "sln", "AspireSDM.slnx", "add",
-    "AspireSDM.ApiService/AspireSDM.ApiService.csproj");
-Dotnet(aspireDir, "sln", "AspireSDM.slnx", "add",
-    "AspireSDM.ServiceDefaults/AspireSDM.ServiceDefaults.csproj");
+Dotnet(aspireDir, "new", "sln", "-n", solutionName, "--force");
+Dotnet(aspireDir, "sln", $"{solutionName}.slnx", "add",
+    $"{solutionName}.AppHost/{solutionName}.AppHost.csproj");
+Dotnet(aspireDir, "sln", $"{solutionName}.slnx", "add",
+    $"{solutionName}.ApiService/{solutionName}.ApiService.csproj");
+Dotnet(aspireDir, "sln", $"{solutionName}.slnx", "add",
+    $"{solutionName}.ServiceDefaults/{solutionName}.ServiceDefaults.csproj");
 
 // ---------------------------------------------------------------------------
 // Done
@@ -672,7 +672,7 @@ Console.WriteLine();
 Console.WriteLine("=== Aspire integration created! ===");
 Console.WriteLine();
 Console.WriteLine("To run:");
-Console.WriteLine($"  dotnet run --project \"{Path.Combine(aspireDir, "AspireSDM.AppHost")}\" --launch-profile http");
+Console.WriteLine($"  dotnet run --project \"{Path.Combine(aspireDir, $"{solutionName}.AppHost")}\" --launch-profile http");
 Console.WriteLine();
 Console.WriteLine("Resources in Aspire dashboard:");
 Console.WriteLine("  • automationhost — Runs net48 script DLLs (AutomationHost.exe)");

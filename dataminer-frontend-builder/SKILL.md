@@ -91,6 +91,11 @@ const SCRIPT_FOLDER = '';
 
 // Auth functions: login(), restoreSession(), logout()
 // Uses ConnectAppAndInfo for login, GetSecurityInfo for session restore
+// IMPORTANT: ConnectAppAndInfo requires `host: window.location.host` in the body
+
+// login() body must include:
+// { host: window.location.host, connection: '', login, password,
+//   clientAppName: '<AppName>', clientAppVersion: '1.0.0', clientComputerName: 'WebApp' }
 
 // UDAPI wrapper: callUdapiScript(connection, requestMethod, rawBody, queryParameters)
 // requestMethod: 1=GET, 3=POST, 4=PUT, 5=DELETE
