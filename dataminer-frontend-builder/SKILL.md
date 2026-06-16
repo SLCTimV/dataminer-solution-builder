@@ -98,7 +98,7 @@ const SCRIPT_FOLDER = '';
 //   clientAppName: '<AppName>', clientAppVersion: '1.0.0', clientComputerName: 'WebApp' }
 
 // UDAPI wrapper: callUdapiScript(connection, requestMethod, rawBody, queryParameters)
-// requestMethod: 1=GET, 3=POST, 4=PUT, 5=DELETE
+// requestMethod: 1=GET, 2=PUT, 3=POST, 4=DELETE
 // Reads ScriptOutput key 'ApiTriggerOutput', parses ResponseCode + ResponseBody
 
 // Per-model CRUD functions:
@@ -122,7 +122,7 @@ const SCRIPT_FOLDER = '';
       ParameterId: 2,
       Name: 'ApiTriggerInput',
       Value: JSON.stringify({
-        RequestMethod: requestMethod,  // 1=GET, 3=POST, 4=PUT, 5=DELETE
+        RequestMethod: requestMethod,  // 1=GET, 2=PUT, 3=POST, 4=DELETE
         Route: '<apiRoute>',           // from solution config
         RawBody: rawBody,
         Parameters: {},
@@ -288,7 +288,7 @@ Create a DataMiner frontend application with the following specifications:
 
 ## Reference Pattern
 The api.js must use the exact ExecuteAutomationScriptWithOutput payload format
-documented in the skill. RequestMethod codes: 1=GET, 3=POST, 4=PUT, 5=DELETE.
+documented in the skill. RequestMethod codes: 1=GET, 2=PUT, 3=POST, 4=DELETE.
 ```
 
 ---

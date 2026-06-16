@@ -309,7 +309,7 @@ prompt.AppendLine("- Enum fields as dropdowns, ref fields as async-loaded dropdo
 prompt.AppendLine("- Sub-object lists as inline editable tables in modals");
 prompt.AppendLine("- Sortable table columns with infinite scroll");
 prompt.AppendLine("- Filter panel with OData-style filter strings");
-prompt.AppendLine("- RequestMethod codes: 1=GET, 3=POST, 4=PUT, 5=DELETE");
+prompt.AppendLine("- RequestMethod codes: 1=GET, 2=PUT, 3=POST, 4=DELETE");
 prompt.AppendLine();
 prompt.AppendLine("## api.js Pattern");
 prompt.AppendLine();
@@ -317,7 +317,7 @@ prompt.AppendLine("The api.js must use this exact payload format for ExecuteAuto
 prompt.AppendLine();
 prompt.AppendLine("```javascript");
 prompt.AppendLine("const apiTriggerInput = JSON.stringify({");
-prompt.AppendLine($"  RequestMethod: requestMethod,  // 1=GET, 3=POST, 4=PUT, 5=DELETE");
+prompt.AppendLine($"  RequestMethod: requestMethod,  // 1=GET, 2=PUT, 3=POST, 4=DELETE");
 prompt.AppendLine($"  Route: '{apiRoute}',");
 prompt.AppendLine("  RawBody: rawBody,");
 prompt.AppendLine("  Parameters: {},");
