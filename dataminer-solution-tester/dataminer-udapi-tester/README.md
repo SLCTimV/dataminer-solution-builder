@@ -1,15 +1,41 @@
-# Stage 6 — Solution Tester
+# Stage 6 — UDAPI Tester (k6 + Schemathesis)
 
-Runs automated **smoke, load, and fuzz tests** against the generated UDAPI to verify correctness, API contract compliance, and resilience under load.
+Two-phase approach to API-level testing for DataMiner UDAPI endpoints:
+
+1. **Scaffolding** (`New-UdapiTests.cs`) — generates k6 smoke/load scripts, run-tests.ps1, openapi.yaml
+2. **Test implementation** (`SKILL.md`) — guides an agent to customize tests and verify against Aspire/deployed
+
+Tests run against **any endpoint** via parameters:
+- Local Aspire: `http://localhost:5180` (smoke only — load testing a mock is pointless)
+- Deployed DataMiner: `https://<host>/api/custom` with bearer token (full suite)
 
 ---
 
-## Responsibility
+## Scaffolding (`New-UdapiTests.cs`)
 
-- Validate the full CRUD cycle against the live (or locally Aspire-hosted) API.
-- Check that the API response shapes conform to `openapi.yaml`.
-- Probe edge cases with property-based fuzzing (random valid/invalid payloads).
-- Report results in standard formats (JSON metrics, JUnit XML, HTML).
+```powershell
+dotnet run dataminer-solution-tester/dataminer-udapi-tester/New-UdapiTests.cs -- \
+  --input-yaml <path>         # YAML domain model (extracts fields, enums for sample payloads)
+  --backend <path>            # Backend dir (discovers openapi.yaml from build output)
+  --output-dir <path>         # Optional, defaults to <SolutionName>Tester/udapitests
+```
+
+### What it generates
+
+```
+<SolutionName>Tester/udapitests/
+├── .env / .env.example       # API_BASE_URL, API_TOKEN, API_ROUTE
+├── .gitignore
+├── openapi.yaml              # Copied from backend build or stub generated
+├── run-tests.ps1             # Unified runner: -Url -Token -Type smoke|load|fuzz|all
+└── tests/
+    ├── k6/
+    │   ├── smoke.js          # Full CRUD cycle (POST→GET→PUT→DELETE→verify)
+    │   ├── load.js           # 80/20 read/write ramp (5→10 VUs over 2min)
+    │   └── results/          # JSON output from k6
+    └── schemathesis/
+        └── results/          # JUnit XML from schemathesis
+```
 
 ---
 
@@ -25,18 +51,16 @@ Runs automated **smoke, load, and fuzz tests** against the generated UDAPI to ve
 
 ## Quick Start
 
-```bash
-# Windows — run all tests
-run-tests.bat <endpoint-url> <bearer-token>
+```powershell
+# Aspire (smoke only — no auth needed)
+.\run-tests.ps1 -Url http://localhost:5180 -Type smoke
 
-# Run only smoke test (fast CRUD validation, ~3 seconds)
-run-tests.bat https://<host>/api/custom <token> smoke
+# Deployed DataMiner (full suite)
+.\run-tests.ps1 -Url https://<host>/api/custom -Token <bearer> -Type all
 
-# Run only fuzz tests (~5-8 minutes)
-run-tests.bat https://<host>/api/custom <token> fuzz
+# Just fuzz
+.\run-tests.ps1 -Url http://localhost:5180 -Type fuzz
 ```
-
-For local Aspire testing use the ApiService URL (e.g. `http://localhost:5261/api/custom`) and omit the bearer token or use any placeholder.
 
 ---
 
@@ -72,35 +96,35 @@ For local Aspire testing use the ApiService URL (e.g. `http://localhost:5261/api
 
 ---
 
-## Reference Implementation
+## Environment Differences
 
-```
-C:\Users\Tim\source\repos\APITestingSolution\
-├── openapi.yaml              # Spec used by CATS and Schemathesis
-├── run-tests.bat / .sh       # Entry-point scripts
-├── tests/
-│   ├── k6/
-│   │   ├── smoke.js          # Full CRUD cycle
-│   │   └── load.js           # 80/20 read/write ramp
-│   ├── schemathesis/
-│   │   └── run.bat / .sh
-│   └── cats/
-│       └── run.bat / .sh
-└── .env.example              # API_BASE_URL, API_TOKEN
-```
+| Aspect | Local (Aspire) | Deployed (DataMiner) |
+|--------|---------------|---------------------|
+| URL | `http://localhost:5180` | `https://<host>/api/custom` |
+| Auth | None (placeholder) | Bearer token |
+| HTTPS | No | Yes |
+| Tests to run | **smoke only** | smoke + load + fuzz |
+| Latency | <50ms | 200ms–2s |
+| Data | Ephemeral (resets on restart) | Persistent (cleanup required) |
 
 ---
 
-## Agent
+## Test Implementation (SKILL.md → Agent)
 
-The **test-to-tutorial-converter** custom agent can convert these automated tests into human-executable manual testing tutorials when needed.
+After scaffolding, an agent uses `SKILL.md` to:
+
+1. Verify endpoint connectivity
+2. Run k6 smoke test against Aspire
+3. If tests fail → read k6 output → fix payload/assertions → re-run
+4. Iterate until green
+5. Optionally run fuzz/load against deployed
+
+See [SKILL.md](SKILL.md) for the full agent workflow.
 
 ---
 
 ## TODO / Next Steps
 
-- [ ] Define the agent SKILL.md for this folder
-- [ ] Template the test suite so it auto-configures from `openapi.yaml` (currently Event-specific)
-- [ ] Add Aspire integration test step: start Aspire → run smoke → stop Aspire
-- [ ] Add CI/CD integration (GitHub Actions workflow)
-- [ ] Investigate CATS false positives and add a suppress list
+- [ ] Add CI/CD workflow (GitHub Actions)
+- [ ] Investigate Schemathesis stateful link support for CRUD chains
+- [ ] Add CATS integration (requires Java 11+)
