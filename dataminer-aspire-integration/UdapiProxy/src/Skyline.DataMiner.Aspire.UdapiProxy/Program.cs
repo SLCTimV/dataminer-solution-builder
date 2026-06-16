@@ -49,8 +49,8 @@ if (!string.IsNullOrEmpty(openapiPath))
 // Resolve route prefix (default: "api/custom")
 var routePrefix = app.Configuration["UdapiProxy:RoutePrefix"] ?? "api/custom";
 
-// Map all UDAPI routes
-app.Map($"/{routePrefix}/{{*route}}", async (HttpContext context, string route, IHttpClientFactory httpFactory, ILogger<Program> logger) =>
+// Handler for UDAPI routes
+async Task HandleUdapiRequest(HttpContext context, string route, IHttpClientFactory httpFactory, ILogger<Program> logger)
 {
     // Translate HTTP method to RequestMethod enum (1=GET, 2=PUT, 3=POST, 4=DELETE)
     var requestMethod = context.Request.Method.ToUpperInvariant() switch
@@ -85,10 +85,11 @@ app.Map($"/{routePrefix}/{{*route}}", async (HttpContext context, string route, 
     }
 
     // Build ApiTriggerInput
+    var fullRoute = string.IsNullOrEmpty(route) ? routePrefix : $"{routePrefix}/{route}";
     var apiTriggerInput = JsonSerializer.Serialize(new
     {
         RequestMethod = requestMethod,
-        Route = route,
+        Route = fullRoute,
         RawBody = rawBody,
         Parameters = new Dictionary<string, string>(),
         Context = new { TokenId = "00000000-0000-0000-0000-000000000000" },
@@ -169,7 +170,13 @@ app.Map($"/{routePrefix}/{{*route}}", async (HttpContext context, string route, 
     // Fallback: return raw script outputs
     context.Response.StatusCode = 200;
     await context.Response.WriteAsJsonAsync(scriptResult.ScriptOutputs);
-});
+}
+
+// Map both the base path and sub-paths
+app.Map($"/{routePrefix}/{{*route}}", (HttpContext context, string route, IHttpClientFactory httpFactory, ILogger<Program> logger)
+    => HandleUdapiRequest(context, route, httpFactory, logger));
+app.Map($"/{routePrefix}", (HttpContext context, IHttpClientFactory httpFactory, ILogger<Program> logger)
+    => HandleUdapiRequest(context, "", httpFactory, logger));
 
 app.Run();
 
