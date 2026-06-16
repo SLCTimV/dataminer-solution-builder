@@ -331,6 +331,17 @@ prompt.AppendLine("Response: ScriptOutput key 'ApiTriggerOutput' → JSON with R
 prompt.AppendLine("IMPORTANT: For DELETE/PUT 204 responses, ApiTriggerOutput may be '{}' (empty object).");
 prompt.AppendLine("Always guard: if (!parsed.ResponseBody) return null; and wrap JSON.parse in try/catch.");
 prompt.AppendLine();
+prompt.AppendLine("## DateTime Handling");
+prompt.AppendLine();
+prompt.AppendLine("CRITICAL: The .NET backend cannot deserialize `null` DateTime values. Follow these rules:");
+prompt.AppendLine("- When building the RawBody for POST/PUT, **omit** DateTime fields entirely if they are empty.");
+prompt.AppendLine("  Do NOT send `\"Start\": null` — instead `delete payload.Start` before JSON.stringify.");
+prompt.AppendLine("- The backend returns `\"0001-01-01T00:00:00\"` for unset DateTime fields.");
+prompt.AppendLine("- When loading data into edit forms, treat `0001-01-01` as empty string (no date):");
+prompt.AppendLine("  `if (!val || val.startsWith('0001-01-01')) return '';`");
+prompt.AppendLine("- For datetime-local inputs: convert ISO to local with `.toISOString().slice(0, 16)`");
+prompt.AppendLine("  but guard against invalid dates: `if (isNaN(d.getTime())) return '';`");
+prompt.AppendLine();
 
 // ---------------------------------------------------------------------------
 // STEP 2 — Write prompt file

@@ -205,6 +205,13 @@ For each main model, generate:
   - `enum` → select dropdown with enum values
   - `ref` → select dropdown populated by fetching the referenced model's list
   - `lists` (sub-objects) → inline editable table within the modal
+
+  **DateTime rules (CRITICAL — backend crashes on invalid dates):**
+  - When loading data into edit forms: treat `"0001-01-01T00:00:00"` (the .NET default) as empty string
+  - `toDatetimeLocal(val)` must check: `if (!val || val.startsWith('0001-01-01')) return '';`
+  - Guard against NaN: `if (isNaN(new Date(val).getTime())) return '';`
+  - When building RawBody for POST/PUT: **omit** DateTime fields that are empty — `delete payload.Start`
+  - NEVER send `"Start": null` — the .NET backend cannot deserialize null into DateTime
 - **Navigation** — For multi-model apps, a sidebar or tab bar to switch between model views
 - **LoginPage** — Username/password form using DataMiner ConnectAppAndInfo
 
