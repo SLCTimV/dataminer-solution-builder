@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   version="1.0"
+   width="38.000000pt"
+   height="38.000000pt"
+   viewBox="0 0 172.000000 172.000000"
+   preserveAspectRatio="xMidYMid meet"
+   id="svg35"
+   sodipodi:docname="logo-slc.svg"
+   inkscape:version="1.1.1 (3bf5ae0d25, 2021-09-20)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs39" />
+  <sodipodi:namedview
+     id="namedview37"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="pt"
+     showgrid="false"
+     showguides="false"
+     inkscape:zoom="11.042763"
+     inkscape:cx="81.954127"
+     inkscape:cy="40.252607"
+     inkscape:window-width="2560"
+     inkscape:window-height="1369"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg35" />
+  <metadata
+     id="metadata25">
+Created by Docfx
+</metadata>
+  <g
+     id="bleu"
+     transform="matrix(4.3660247,0,0,4.3630543,3.0978608,4.165516)"
+     style="fill:#ffffff">
+    <g
+       id="Bird_2_"
+       style="fill:#ffffff">
+      <path
+         class="st0"
+         d="m 2.9,15.9 c -0.2,1 -0.3,2 -0.3,3.1 0,3.7 1.2,7 3.2,9.8 1.6,-1 3.1,-2.1 4.3,-3.3 C 8.4,22 6.1,19.1 2.9,15.9 Z"
+         id="path17"
+         style="fill:#ffffff" />
+      <path
+         class="st0"
+         d="M 8.7,6.2 C 6.4,8 4.7,10.4 3.6,13.2 10.4,14.8 14,18.1 14,18.1 14,18.1 13.3,11 8.7,6.2 Z"
+         id="path19"
+         style="fill:#ffffff" />
+      <path
+         class="st0"
+         d="m 19,2.6 c -2.6,0 -5.2,0.6 -7.4,1.7 2.8,0.6 4.8,2.1 5.8,3.3 2.5,3.1 3.9,13.2 6.9,13.3 1.1,-0.1 4.4,-0.3 6.7,1.1 1.8,1.1 2.6,3.1 2.6,4.2 -3.6,-1.4 -6.2,-0.7 -7.8,-0.2 -2.4,0.7 -9.4,4.1 -12.3,5.1 -1.2,0.4 -2.6,0.8 -4.2,1.2 2.7,1.9 6,3 9.5,3 9.1,0 16.4,-7.3 16.4,-16.4 C 35.2,9.8 28.1,2.6 19,2.6 Z"
+         id="path21"
+         style="fill:#ffffff" />
+    </g>
+  </g>
+</svg>

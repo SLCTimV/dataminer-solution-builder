@@ -121,7 +121,7 @@ Output: <OutputDir>/SDM<Domain>/
 **Action**: Generate the full backend automation solution:
 - UDAPI automation script (REST controller)
 - GQI ad-hoc data sources
-- Assistant markdown files
+- Assistant markdown files (agent-guided: one skill per user flow, one agent per user role)
 - Installer package (DOM + UDAPI registration)
 
 **Input**: YAML from Step 1 + DevPack NuGet from Step 2

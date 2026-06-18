@@ -133,6 +133,49 @@ if (Directory.Exists(gqiProjectDir))
 RunOrFail("dotnet", $"new dataminer-automation-project -n {gqiProjectName} -o \"{gqiProjectDir}\" --force");
 RunOrFail("dotnet", $"sln \"{backendSlnx}\" add \"{Path.Combine(gqiProjectDir, $"{gqiProjectName}.csproj")}\"");
 
+// Patch the XML to add preCompile and libraryName params
+var gqiXmlPath = Path.Combine(gqiProjectDir, $"{gqiProjectName}.xml");
+if (File.Exists(gqiXmlPath))
+{
+    var xmlDoc = new XmlDocument();
+    xmlDoc.Load(gqiXmlPath);
+    var nsMgr = new XmlNamespaceManager(xmlDoc.NameTable);
+    nsMgr.AddNamespace("dm", "http://www.skyline.be/automation");
+    var exeNode = xmlDoc.SelectSingleNode("//dm:Exe[@id='1']", nsMgr);
+    if (exeNode != null)
+    {
+        // Remove existing Param nodes to avoid duplicates
+        var existingParams = exeNode.SelectNodes("dm:Param", nsMgr);
+        if (existingParams != null)
+        {
+            foreach (XmlNode p in existingParams) exeNode.RemoveChild(p);
+        }
+
+        // Add preCompile param
+        var preCompileParam = xmlDoc.CreateElement("Param", "http://www.skyline.be/automation");
+        preCompileParam.SetAttribute("type", "preCompile");
+        preCompileParam.InnerText = "true";
+        exeNode.AppendChild(preCompileParam);
+
+        // Add libraryName param
+        var libraryNameParam = xmlDoc.CreateElement("Param", "http://www.skyline.be/automation");
+        libraryNameParam.SetAttribute("type", "libraryName");
+        libraryNameParam.InnerText = gqiProjectName;
+        exeNode.AppendChild(libraryNameParam);
+
+        // Keep Message element at the end
+        var messageNode = exeNode.SelectSingleNode("dm:Message", nsMgr);
+        if (messageNode != null)
+        {
+            exeNode.RemoveChild(messageNode);
+            exeNode.AppendChild(messageNode);
+        }
+
+        xmlDoc.Save(gqiXmlPath);
+        Console.WriteLine($"   ✓ Patched {gqiProjectName}.xml with preCompile + libraryName");
+    }
+}
+
 Console.WriteLine($"   ✓ Created {gqiProjectName} and added to {backendSolutionName}.slnx");
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -130,34 +130,28 @@ void Step1_ScaffoldPackageProject()
     // Add NuGet packages needed for installers
     Dotnet(backendSolutionDir, "add", $".\\{packageProjectName}\\{packageProjectName}.csproj", "package", "Skyline.DataMiner.Dev.Automation");
     Dotnet(backendSolutionDir, "add", $".\\{packageProjectName}\\{packageProjectName}.csproj", "package", "Skyline.DataMiner.Utils.DOM");
-    Dotnet(backendSolutionDir, "add", $".\\{packageProjectName}\\{packageProjectName}.csproj", "package", "Skyline.DataMiner.SDM.SourceGenerator.Runtime");
     Dotnet(backendSolutionDir, "add", $".\\{packageProjectName}\\{packageProjectName}.csproj", "package", "Skyline.DataMiner.Utils.SecureCoding");
-
-    // Add local NuGet source for devpack package
-    var devpackNugetDir = Path.Combine(outputDir, solutionName, solutionName, "bin", "Debug");
-    try
-    {
-        Dotnet(backendSolutionDir, "nuget", "add", "source", devpackNugetDir, "--name", $"{solutionName}-local");
-    }
-    catch
-    {
-        Console.WriteLine("  (NuGet source may already exist, continuing...)");
-    }
-
-    Dotnet(backendSolutionDir, "add", $".\\{packageProjectName}\\{packageProjectName}.csproj", "package", nugetPackageId);
 
     Directory.CreateDirectory(Path.Combine(backendSolutionDir, packageProjectName, "DOM"));
     Directory.CreateDirectory(Path.Combine(backendSolutionDir, packageProjectName, "Installers"));
 
-    // Copy DomMapper .g.cs files from the devpack's Models folder
+    // Copy DomMapper .g.cs files from the devpack's Models folder (strip SDM attributes)
     var modelsDir = Path.Combine(outputDir, solutionName, solutionName, "Models");
     var domFolder = Path.Combine(backendSolutionDir, packageProjectName, "DOM");
     if (Directory.Exists(modelsDir))
     {
         foreach (var gFile in Directory.GetFiles(modelsDir, "*.g.cs"))
         {
-            File.Copy(gFile, Path.Combine(domFolder, Path.GetFileName(gFile)), overwrite: true);
-            Console.WriteLine($"  Copied {Path.GetFileName(gFile)} to Package/DOM");
+            var content = File.ReadAllText(gFile);
+            // Remove SDM source generator references
+            content = content.Replace("using Skyline.DataMiner.SDM;\r\n", "");
+            content = content.Replace("using Skyline.DataMiner.SDM;\n", "");
+            content = content.Replace("[SdmDomMapper]\r\n", "");
+            content = content.Replace("[SdmDomMapper]\n", "");
+            content = content.Replace("    [SdmDomMapper]\r\n", "");
+            content = content.Replace("    [SdmDomMapper]\n", "");
+            File.WriteAllText(Path.Combine(domFolder, Path.GetFileName(gFile)), content);
+            Console.WriteLine($"  Copied {Path.GetFileName(gFile)} to Package/DOM (stripped SDM attributes)");
         }
     }
 
@@ -589,6 +583,23 @@ void Step4_GeneratePackageCs()
     sb.AppendLine("                {");
     sb.AppendLine("                    File.Copy(file, Path.Combine(skillTarget, Path.GetFileName(file)), true);");
     sb.AppendLine("                    installer.Log($\"Copied {Path.GetFileName(file)} to Skills/{skillName}\");");
+    sb.AppendLine("                }");
+    sb.AppendLine("            }");
+    sb.AppendLine("        }");
+    sb.AppendLine();
+    sb.AppendLine("        // Copy agent md files (each subfolder = one agent, folder name is a GUID)");
+    sb.AppendLine("        var agentsSource = Path.Combine(setupContentDir, \"agents\");");
+    sb.AppendLine("        if (Directory.Exists(agentsSource))");
+    sb.AppendLine("        {");
+    sb.AppendLine("            foreach (var agentDir in Directory.GetDirectories(agentsSource))");
+    sb.AppendLine("            {");
+    sb.AppendLine("                var agentGuid = Path.GetFileName(agentDir);");
+    sb.AppendLine("                var agentTarget = Path.Combine(assistantBaseDir, \"Agents\", agentGuid);");
+    sb.AppendLine("                Directory.CreateDirectory(agentTarget);");
+    sb.AppendLine("                foreach (var file in Directory.GetFiles(agentDir, \"*.md\"))");
+    sb.AppendLine("                {");
+    sb.AppendLine("                    File.Copy(file, Path.Combine(agentTarget, Path.GetFileName(file)), true);");
+    sb.AppendLine("                    installer.Log($\"Copied {Path.GetFileName(file)} to Agents/{agentGuid}\");");
     sb.AppendLine("                }");
     sb.AppendLine("            }");
     sb.AppendLine("        }");

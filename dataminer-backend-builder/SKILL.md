@@ -42,7 +42,7 @@ Run these scripts in order. All share the same `--input-yaml` and `--output-dir`
 | 1 | `New-Backend.cs` | `dataminer-backend-builder/` | Creates the empty `{Name}Backend.slnx` |
 | 2 | `New-Udapi.cs` | `dataminer-backend-builder/dataminer-udapi-builder/` | Adds UDAPI automation project with controllers |
 | 3 | `New-Adhoc.cs` | `dataminer-backend-builder/dataminer-adhoc-builder/` | Adds GQI ad-hoc data source project |
-| 4 | `New-AssistantMdFiles.cs` | `dataminer-backend-builder/dataminer-assistant-mdfiles/` | Generates assistant skill/adhoc/script md files |
+| 4 | `New-AssistantMdFiles.cs` + SKILL.md | `dataminer-backend-builder/dataminer-assistant-mdfiles/` | Scaffolds dirs, then agent creates skills/agents |
 | 5 | `New-BackendInstaller.cs` | `dataminer-backend-builder/dataminer-backend-installer/` | Adds `.Package` project with DOM + UDAPI installers |
 
 ## Execution
@@ -61,8 +61,9 @@ dotnet run dataminer-backend-builder/dataminer-udapi-builder/New-Udapi.cs -- -i 
 # Step 3: Add GQI ad-hoc data sources
 dotnet run dataminer-backend-builder/dataminer-adhoc-builder/New-Adhoc.cs -- -i $yaml -o $out
 
-# Step 4: Generate assistant md files
+# Step 4: Scaffold assistant md file directories + print context
 dotnet run dataminer-backend-builder/dataminer-assistant-mdfiles/New-AssistantMdFiles.cs -- -i $yaml -o $out
+# Then follow dataminer-assistant-mdfiles/SKILL.md to create the actual files
 
 # Step 5: Add installer package
 dotnet run dataminer-backend-builder/dataminer-backend-installer/New-BackendInstaller.cs -- -i $yaml -o $out
@@ -96,10 +97,26 @@ dotnet run dataminer-backend-builder/dataminer-backend-installer/New-BackendInst
 - For each sub-object: `{SubObj}s/Columns.cs`, `Get{SubObj}s.cs`, `Inputs.cs` (parent identifier)
 - Builds the project
 
-### Step 4 — New-AssistantMdFiles.cs (3 internal steps)
-- Generates `SetupContent/adhocs/get{model}s.md` — GQI data source descriptions with OpenAPI spec
-- Generates `SetupContent/scripts/{Name}UDAPI.md` — Script description with ApiTriggerInput example
-- Generates `SetupContent/skills/SKILL.md` — Assistant skill explaining retrieval and CRUD operations
+### Step 4 — Assistant MD Files (agent-guided)
+
+**Skill**: `dataminer-assistant-mdfiles/SKILL.md`
+**Scaffolder**: `dataminer-assistant-mdfiles/New-AssistantMdFiles.cs`
+
+This step is **agent-guided** — the agent creates rich, context-aware descriptions
+rather than generating formulaic templates.
+
+1. Run the scaffolder script to create directories and output source material paths
+2. Follow the SKILL.md to create one adhoc `.md` per data source
+3. Follow the SKILL.md to create one script `.md` for the UDAPI
+4. Follow the SKILL.md to create **one skill per user flow** (from `UserFlows.md`)
+5. Follow the SKILL.md to create **one agent per user role** (from `UserRoles.md`)
+6. Review all created files for size limits, naming, and usefulness
+
+Output:
+- `SetupContent/adhocs/get{model}s.md` — one per model/sub-object
+- `SetupContent/scripts/{Name}UDAPI.md` — UDAPI script tool
+- `SetupContent/skills/{name}-{flow-slug}/SKILL.md` — one per user flow
+- `SetupContent/agents/{guid}/agent.md` — one per user role
 
 ### Step 5 — New-BackendInstaller.cs (5 internal steps)
 - Scaffolds `{Name}Backend.Package` project
@@ -131,9 +148,10 @@ dotnet run dataminer-backend-builder/dataminer-backend-installer/New-BackendInst
         ├── DOM/
         ├── Installers/
         ├── SetupContent/
-        │   ├── adhocs/              ← Assistant ad-hoc md files
-        │   ├── scripts/             ← Assistant script md file
-        │   └── skills/              ← Assistant skill md file
+        │   ├── adhocs/              ← One adhoc md per data source
+        │   ├── scripts/             ← UDAPI script tool md
+        │   ├── skills/              ← One skill folder per user flow
+        │   └── agents/              ← One agent folder per user role
         └── Package.cs
 ```
 
