@@ -3,8 +3,8 @@ name: dataminer-newsolution-builder
 description: >
   End-to-end orchestrator that builds a complete DataMiner SDM solution from a user
   prompt or requirements document. Runs the full pipeline in order: Model Analyzer →
-  DevPack Builder → Backend Builder → Frontend Builder → Aspire Integration →
-  Solution Tester.
+  DevPack Builder → Backend Builder → Frontend Builder → Documentation Builder →
+  Aspire Integration → Solution Tester.
   USE FOR: "build a new DataMiner solution", "create a full SDM app for...",
   "scaffold everything from scratch", "generate a complete solution", "new solution
   from requirements".
@@ -51,13 +51,18 @@ User Prompt / Document
 └─────────────────────┘
         │
         ▼
+┌──────────────────────────┐
+│  5. Documentation Builder│  → DocFX site + .dmapp package
+└──────────────────────────┘
+        │
+        ▼
 ┌─────────────────────┐
-│  5. Aspire Integration │  → AppHost + hot-reload local dev environment
+│  6. Aspire Integration │  → AppHost + hot-reload local dev environment
 └─────────────────────┘
         │
         ▼
 ┌─────────────────────┐
-│  6. Solution Tester │  → k6 smoke + Playwright E2E (validates everything)
+│  7. Solution Tester │  → k6 smoke + Playwright E2E (validates everything)
 └─────────────────────┘
 ```
 
@@ -148,7 +153,46 @@ Output: <OutputDir>/SDM<Domain>Frontend/
 
 ---
 
-### Step 5: Aspire Integration
+### Step 5: Documentation Builder
+
+**Skill**: `dataminer-documentation-builder`
+**Scripts**:
+- `dataminer-documentation-builder/dataminer-docfx-builder/New-DocfxBuilder.cs`
+- `dataminer-documentation-builder/dataminer-documentation-installer/New-DocumentationInstaller.cs`
+
+**Action**: Generate the DocFX documentation site and package it:
+1. Scaffold the documentation structure (folders, `docfx.json`, Skyline template)
+2. Fill in content from SolutionDescription.md, YAML model, and openapi.yaml
+3. Build the site: `docfx build docfx.json`
+4. Package into a `.dmapp` installer
+
+**Input**: YAML from Step 1 + SolutionDescription.md + openapi.yaml from backend
+**Validation**: `docfx build` succeeds and `_site/` folder is produced
+
+```powershell
+# Scaffold
+dotnet run dataminer-documentation-builder/dataminer-docfx-builder/New-DocfxBuilder.cs -- \
+  -i <yaml> -o <output-dir>
+
+# Fill content (agent-driven — see docfx-builder SKILL.md)
+
+# Build site
+cd <OutputDir>/SDM<Domain>Documentation && docfx build docfx.json && cd -
+
+# Package
+dotnet run dataminer-documentation-builder/dataminer-documentation-installer/New-DocumentationInstaller.cs -- \
+  -i <yaml> -o <output-dir>
+```
+
+```
+Output: <OutputDir>/SDM<Domain>Documentation/
+        <OutputDir>/SDM<Domain>Documentation/_site/
+        <OutputDir>/SDM<Domain>Documentation/<Name>Documentation.Package/
+```
+
+---
+
+### Step 6: Aspire Integration
 
 **Skill**: `dataminer-aspire-integration`
 **Script**: `dataminer-aspire-integration/New-AspireIntegration.cs`
@@ -159,6 +203,8 @@ Output: <OutputDir>/SDM<Domain>Frontend/
 - DllWatcher (hot-reload on build)
 - ApiService (mock DataMiner Web API + auth mock + script proxy)
 - Vite frontend dev server
+- DocFX documentation site (if `_site` exists)
+- Foundry Local + AI Coworker (local AI assistant)
 
 **Input**: YAML + backend DLLs + devpack DLLs + openapi.yaml + frontend path
 **Validation**: `dotnet build` of the AppHost succeeds
@@ -169,7 +215,7 @@ Output: <OutputDir>/SDM<Domain>Aspire/
 
 ---
 
-### Step 6: Solution Tester
+### Step 7: Solution Tester
 
 **Skill**: `dataminer-solution-tester`
 
@@ -226,6 +272,7 @@ Output: <OutputDir>/SDM<Domain>Tester/
 ├── SDM<Domain>/              ← DevPack (NuGet models + API helpers)
 ├── SDM<Domain>Backend/       ← UDAPI + GQI + Installer (.dmapp)
 ├── SDM<Domain>Frontend/      ← React + Vite SPA
+├── SDM<Domain>Documentation/ ← DocFX site + .dmapp installer
 ├── SDM<Domain>Aspire/        ← Aspire AppHost (local dev)
 └── SDM<Domain>Tester/        ← Test suite
     ├── udapitests/           ← k6 smoke/load + schemathesis fuzz

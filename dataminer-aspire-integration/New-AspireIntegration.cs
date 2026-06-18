@@ -76,6 +76,16 @@ var config       = deserializer.Deserialize<AspireConfig>(File.ReadAllText(input
 var solutionName = config.Solution.Name;
 var apiRoute     = config.Solution.ApiRoute ?? "api/custom";
 var apiName      = config.Solution.ApiName ?? $"{solutionName} API";
+var apiDescription = config.Solution.ApiDescription ?? $"API for {solutionName}";
+
+// Resolve models for AI Coworker config
+var models = config.Models?.Count > 0
+    ? config.Models
+    : config.MainModel is not null
+        ? new List<ModelConfig> { config.MainModel }
+        : new List<ModelConfig>();
+var enums = config.Enums ?? new List<EnumConfig>();
+var subObjects = config.SubObjects ?? new List<SubObjectConfig>();
 
 // ---------------------------------------------------------------------------
 // Resolve paths
@@ -88,13 +98,40 @@ var devpackName      = solutionName;
 var frontendName     = $"{solutionName}Frontend";
 
 // Use explicit paths if provided, otherwise fall back to convention-based defaults
-var udapiDllPath   = udapiDllArg ?? Path.Combine(workspaceDir, udapiProjectName, udapiProjectName, "bin", "Debug", "net48", $"{udapiProjectName}.dll");
+var backendName     = $"{solutionName}Backend";
+var udapiDllPath   = udapiDllArg ?? Path.Combine(workspaceDir, backendName, udapiProjectName, "bin", "Debug", "net48", $"{udapiProjectName}.dll");
 var devpackDllPath = devpackDllArg ?? Path.Combine(workspaceDir, devpackName, devpackName, "bin", "Debug", "netstandard2.0", $"Skyline.DataMiner.Utils.{devpackName}.dll");
 var frontendDir    = frontendArg ?? Path.Combine(workspaceDir, frontendName);
-var openApiPath    = openApiArg ?? Path.Combine(workspaceDir, udapiProjectName, udapiProjectName, "bin", "Debug", "net48", "openapi", "openapi.yaml");
+var openApiPath    = openApiArg ?? Path.Combine(workspaceDir, backendName, udapiProjectName, "bin", "Debug", "net48", "openapi", "openapi.yaml");
+var docsDir        = Path.Combine(workspaceDir, $"{solutionName}Documentation");
+var docsSiteDir    = Path.Combine(docsDir, "_site");
 
 // NuGet feed location
 var nugetSource = nugetFeedArg ?? @"C:\Users\Tim\source\nugets";
+
+// Detect Foundry Local port (dynamic per session) — start it if not running
+var (foundryPort, foundryRunning) = DetectFoundryPort();
+
+if (!foundryRunning)
+{
+    Console.WriteLine("  Foundry Local is not running — starting it...");
+    if (!StartFoundryService())
+    {
+        Console.Error.WriteLine("Error: Failed to start Foundry Local.");
+        Console.Error.WriteLine("  Ensure 'foundry' is installed and on PATH.");
+        Console.Error.WriteLine("  Try manually: foundry service start");
+        return 1;
+    }
+
+    // Re-detect port after starting
+    (foundryPort, foundryRunning) = DetectFoundryPort();
+    if (!foundryRunning)
+    {
+        Console.Error.WriteLine("Error: Foundry started but port could not be detected.");
+        Console.Error.WriteLine("  Run 'foundry service status' to check.");
+        return 1;
+    }
+}
 
 Console.WriteLine();
 Console.WriteLine("=== New-AspireIntegration ===");
@@ -106,6 +143,8 @@ Console.WriteLine($"  DevPack DLL: {devpackDllPath}");
 Console.WriteLine($"  OpenAPI    : {openApiPath}");
 Console.WriteLine($"  Frontend   : {frontendDir}");
 Console.WriteLine($"  NuGet feed : {nugetSource}");
+Console.WriteLine($"  Foundry    : port {foundryPort}");
+Console.WriteLine($"  Docs site  : {docsSiteDir}");
 Console.WriteLine();
 
 // ---------------------------------------------------------------------------
@@ -120,7 +159,7 @@ if (!IsDotnetAvailable())
 // ---------------------------------------------------------------------------
 // Step 1: Create Aspire folder structure
 // ---------------------------------------------------------------------------
-Console.WriteLine("[1/7] Creating Aspire folder structure...");
+Console.WriteLine("[1/8] Creating Aspire folder structure...");
 
 if (Directory.Exists(aspireDir))
 {
@@ -142,7 +181,7 @@ Directory.CreateDirectory(Path.Combine(appHostDir, "Properties"));
 // ---------------------------------------------------------------------------
 // Step 2: Write nuget.config (workspace-level, points to local packages)
 // ---------------------------------------------------------------------------
-Console.WriteLine("[2/7] Writing nuget.config...");
+Console.WriteLine("[2/8] Writing nuget.config...");
 
 // Write nuget.config into the Aspire folder
 var aspireNugetConfigPath = Path.Combine(aspireDir, "nuget.config");
@@ -169,7 +208,7 @@ Console.WriteLine("  Created nuget.config");
 // ---------------------------------------------------------------------------
 // Step 3: Write ServiceDefaults project
 // ---------------------------------------------------------------------------
-Console.WriteLine("[3/7] Writing ServiceDefaults project...");
+Console.WriteLine("[3/8] Writing ServiceDefaults project...");
 
 File.WriteAllText(Path.Combine(serviceDefaultsDir, $"{solutionName}.ServiceDefaults.csproj"), """
 <Project Sdk="Microsoft.NET.Sdk">
@@ -272,7 +311,7 @@ public static class Extensions
 // ---------------------------------------------------------------------------
 // Step 4: Write ApiService project (mock DataMiner Web API + static file hosting)
 // ---------------------------------------------------------------------------
-Console.WriteLine("[4/7] Writing ApiService project...");
+Console.WriteLine("[4/8] Writing ApiService project...");
 
 File.WriteAllText(Path.Combine(apiServiceDir, $"{solutionName}.ApiService.csproj"), $$"""
 <Project Sdk="Microsoft.NET.Sdk.Web">
@@ -456,13 +495,16 @@ File.WriteAllText(Path.Combine(apiServiceDir, "Properties", "launchSettings.json
 // ---------------------------------------------------------------------------
 // Step 5: Write AppHost project (orchestrates everything)
 // ---------------------------------------------------------------------------
-Console.WriteLine("[5/7] Writing AppHost project...");
+Console.WriteLine("[5/8] Writing AppHost project...");
 
 // Normalize paths for C# string literals (use forward slashes)
 var udapiDllForward   = udapiDllPath.Replace("\\", "/");
 var devpackDllForward = devpackDllPath.Replace("\\", "/");
 var openApiForward    = openApiPath.Replace("\\", "/");
 var frontendForward   = frontendDir.Replace("\\", "/");
+
+// Check if documentation site has been built
+var hasDocsSite = Directory.Exists(docsSiteDir);
 
 File.WriteAllText(Path.Combine(appHostDir, $"{solutionName}.AppHost.csproj"), $"""
 <Project Sdk="Aspire.AppHost.Sdk/13.4.4">
@@ -486,17 +528,28 @@ File.WriteAllText(Path.Combine(appHostDir, $"{solutionName}.AppHost.csproj"), $"
     <PackageReference Include="Skyline.DataMiner.Aspire.UdapiProxy.Hosting" Version="1.0.0" />
     <PackageReference Include="Skyline.DataMiner.Aspire.DllWatcher" Version="1.0.0" />
     <PackageReference Include="Skyline.DataMiner.Aspire.DllWatcher.Hosting" Version="1.0.0" />
+    <PackageReference Include="Skyline.DataMiner.Aspire.AiCoworker" Version="1.0.0" />
+    <PackageReference Include="Skyline.DataMiner.Aspire.AiCoworker.Hosting" Version="1.0.0" />
+    <PackageReference Include="Aspire.Hosting.Foundry" Version="13.4.0-preview.1.26281.18" />
   </ItemGroup>
 
 </Project>
 """);
 
 File.WriteAllText(Path.Combine(appHostDir, "AppHost.cs"), $$"""
+using Aspire.Hosting.Foundry;
+using Skyline.DataMiner.Aspire.AiCoworker.Hosting;
 using Skyline.DataMiner.Aspire.AutomationHost.Hosting;
 using Skyline.DataMiner.Aspire.DllWatcher.Hosting;
 using Skyline.DataMiner.Aspire.UdapiProxy.Hosting;
 
 var builder = DistributedApplication.CreateBuilder(args);
+
+// AI: Foundry Local with Phi-4-mini for local AI assistant
+var foundry = builder.AddFoundry("foundry")
+    .RunAsFoundryLocal();
+
+var chat = foundry.AddDeployment("chat", FoundryModel.Local.Phi4Mini);
 
 // AutomationHost: runs the net48 script DLLs via HTTP
 builder.AddAutomationHost("automationhost", port: 7001);
@@ -533,8 +586,43 @@ builder.AddNpmApp("frontend", @"{{frontendDir}}", "dev")
     .WithHttpEndpoint(targetPort: 5173)
     .WithExternalHttpEndpoints();
 
+// AI Coworker: local AI chat assistant powered by Foundry Local
+// NOTE: Foundry Local port is dynamic — detect with: foundry service status
+builder.AddAiCoworker("aicoworker", options =>
+{
+    options.Port = 5190;
+    options.UdapiUrl = "http://localhost:5180";
+    options.FoundryEndpoint = "http://127.0.0.1:{{foundryPort}}/v1";
+    options.FoundryModel = "phi-4-mini-instruct-openvino-gpu:2";
+    options.ConfigPath = "./aicoworker-config.json";
+});
+
+// Documentation: DocFX site served on port 5200
+builder.AddExecutable("docs", "docfx", @"{{docsDir}}", "serve", "_site", "--port", "5200")
+    .WithHttpEndpoint(targetPort: 5200)
+    .WithExternalHttpEndpoints();
+
 builder.Build().Run();
 """);
+
+// If docs _site doesn't exist, remove the docs block from AppHost.cs
+if (!hasDocsSite)
+{
+    var appHostCsPath = Path.Combine(appHostDir, "AppHost.cs");
+    var appHostContent = File.ReadAllText(appHostCsPath);
+    var docsBlockStart = appHostContent.IndexOf("// Documentation: DocFX site");
+    if (docsBlockStart >= 0)
+    {
+        var docsBlockEnd = appHostContent.IndexOf(".WithExternalHttpEndpoints();", docsBlockStart);
+        if (docsBlockEnd >= 0)
+        {
+            docsBlockEnd = appHostContent.IndexOf('\n', docsBlockEnd) + 1;
+            appHostContent = appHostContent[..docsBlockStart] + appHostContent[docsBlockEnd..];
+            File.WriteAllText(appHostCsPath, appHostContent);
+        }
+    }
+    Console.WriteLine("  Note: No _site folder found — docs resource skipped (run 'docfx build' first)");
+}
 
 File.WriteAllText(Path.Combine(appHostDir, "appsettings.json"), """
 {
@@ -594,7 +682,7 @@ File.WriteAllText(Path.Combine(apiServiceDir, "appsettings.Development.json"), $
 // ---------------------------------------------------------------------------
 // Step 6: Patch frontend vite.config.js with API proxy
 // ---------------------------------------------------------------------------
-Console.WriteLine("[6/7] Patching frontend vite.config.js with API proxy...");
+Console.WriteLine("[6/8] Patching frontend vite.config.js with API proxy...");
 
 var viteConfigPath = Path.Combine(frontendDir, "vite.config.js");
 if (!File.Exists(viteConfigPath))
@@ -647,7 +735,7 @@ else
 // ---------------------------------------------------------------------------
 // Step 7: Write aspire.config.json at workspace root + solution file
 // ---------------------------------------------------------------------------
-Console.WriteLine("[7/7] Writing aspire.config.json and solution...");
+Console.WriteLine("[7/8] Writing aspire.config.json and solution...");
 
 File.WriteAllText(Path.Combine(aspireDir, "aspire.config.json"), $$"""
 {
@@ -667,6 +755,96 @@ Dotnet(aspireDir, "sln", $"{solutionName}.slnx", "add",
     $"{solutionName}.ServiceDefaults/{solutionName}.ServiceDefaults.csproj");
 
 // ---------------------------------------------------------------------------
+// Step 8: Generate aicoworker-config.json for AI assistant
+// ---------------------------------------------------------------------------
+Console.WriteLine("[8/8] Generating aicoworker-config.json...");
+
+var configModels = new List<string>();
+foreach (var model in models)
+{
+    var props = new List<string>();
+    if (model.Properties is not null)
+    {
+        foreach (var p in model.Properties)
+        {
+            var desc = p.Type == "enum" ? $"{p.Name} ({p.Enum})" : p.Name;
+            props.Add($"      {{ \"name\": \"{p.Name}\", \"type\": \"{p.Type}\", \"description\": \"{desc}\" }}");
+        }
+    }
+    if (model.Lists is not null)
+    {
+        foreach (var l in model.Lists)
+        {
+            props.Add($"      {{ \"name\": \"{l.Name}\", \"type\": \"list<{l.Type}>\", \"description\": \"List of {l.Type}\" }}");
+        }
+    }
+
+    // Gather enum values relevant to this model
+    var modelEnumDict = new Dictionary<string, List<string>>();
+    if (model.Properties is not null)
+    {
+        foreach (var p in model.Properties.Where(p => p.Type == "enum" && p.Enum is not null))
+        {
+            var enumDef = enums.FirstOrDefault(e => e.Name == p.Enum);
+            if (enumDef?.Values is not null)
+                modelEnumDict[p.Enum!] = enumDef.Values;
+        }
+    }
+    // Also include enums from subObjects referenced by this model's lists
+    if (model.Lists is not null)
+    {
+        foreach (var l in model.Lists)
+        {
+            var sub = subObjects.FirstOrDefault(s => s.Name == l.Type);
+            if (sub?.Properties is not null)
+            {
+                foreach (var sp in sub.Properties.Where(sp => sp.Type == "enum" && sp.Enum is not null))
+                {
+                    var enumDef = enums.FirstOrDefault(e => e.Name == sp.Enum);
+                    if (enumDef?.Values is not null)
+                        modelEnumDict[sp.Enum!] = enumDef.Values;
+                }
+            }
+        }
+    }
+
+    var enumEntries = modelEnumDict.Select(kvp =>
+        $"        \"{kvp.Key}\": [{string.Join(", ", kvp.Value.Select(v => $"\"{v}\""))}]");
+
+    var propsJson = string.Join(",\n", props);
+    var enumsJson = string.Join(",\n", enumEntries);
+
+    configModels.Add($$"""
+    {
+      "name": "{{model.Name}}",
+      "properties": [
+{{propsJson}}
+      ],
+      "enumValues": {
+{{enumsJson}}
+      }
+    }
+""");
+}
+
+var systemPrompt = $"You are an AI assistant for the {apiName}. Help users query, create, update, and delete {(models.Count > 0 ? models[0].Name : "records")} records.";
+
+var aiConfigJson = $$"""
+{
+  "solutionName": "{{solutionName}}",
+  "apiName": "{{apiName}}",
+  "apiRoute": "{{apiRoute}}",
+  "systemPromptPrefix": "{{systemPrompt}}",
+  "models": [
+{{string.Join(",\n", configModels).TrimEnd()}}
+  ]
+}
+""";
+
+File.WriteAllText(Path.Combine(appHostDir, "aicoworker-config.json"), aiConfigJson);
+Console.WriteLine($"  Written: {solutionName}.AppHost/aicoworker-config.json");
+
+// ---------------------------------------------------------------------------
 // Done
 // ---------------------------------------------------------------------------
 Console.WriteLine();
@@ -681,6 +859,12 @@ Console.WriteLine("  • dataminerwebapi — Mock DataMiner Web API + frontend s
 Console.WriteLine("  • udapi          — REST proxy with Scalar OpenAPI UI");
 Console.WriteLine("  • dllwatcher     — Monitors UDAPI + DevPack DLLs for hot reload");
 Console.WriteLine("  • frontend       — npm dev server (Vite) with HMR");
+Console.WriteLine("  • foundry        — Foundry Local AI model server (phi-4-mini)");
+Console.WriteLine("  • aicoworker     — AI chat assistant (port 5190)");
+if (hasDocsSite)
+    Console.WriteLine("  • docs           — DocFX documentation site (port 5200)");
+else
+    Console.WriteLine("  • docs           — (skipped: run 'docfx build' in Documentation folder first)");
 Console.WriteLine();
 Console.WriteLine("Hot reload:");
 Console.WriteLine("  • Edit frontend files → browser refreshes automatically (Vite HMR)");
@@ -730,6 +914,58 @@ static bool IsDotnetAvailable()
     catch { return false; }
 }
 
+static (string Port, bool Running) DetectFoundryPort()
+{
+    try
+    {
+        var psi = new ProcessStartInfo("foundry", "service status")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        using var proc = Process.Start(psi);
+        if (proc == null) return ("49994", false);
+        var output = proc.StandardOutput.ReadToEnd();
+        proc.WaitForExit();
+
+        // Parse the URL from output like: "...running on http://127.0.0.1:64143/..."
+        var match = System.Text.RegularExpressions.Regex.Match(output, @"http://127\.0\.0\.1:(\d+)");
+        if (match.Success)
+        {
+            var port = match.Groups[1].Value;
+            Console.WriteLine($"  Foundry Local detected on port {port}");
+            return (port, true);
+        }
+    }
+    catch { }
+
+    Console.WriteLine("  Warning: Could not detect Foundry Local — is it installed?");
+    Console.WriteLine("  Run 'foundry service start' to start it");
+    return ("49994", false);
+}
+
+static bool StartFoundryService()
+{
+    try
+    {
+        var psi = new ProcessStartInfo("foundry", "service start")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        using var proc = Process.Start(psi);
+        if (proc == null) return false;
+        proc.WaitForExit(TimeSpan.FromSeconds(30));
+        return proc.ExitCode == 0;
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 static void PrintUsage()
 {
     Console.WriteLine("""
@@ -748,15 +984,16 @@ static void PrintUsage()
       -h, --help           Show this help
 
     If paths are not provided, they are derived from convention:
-      • <output>/<Name>UDAPI/<Name>UDAPI/bin/Debug/net48/<Name>UDAPI.dll
+      • <output>/<Name>Backend/<Name>UDAPI/bin/Debug/net48/<Name>UDAPI.dll
       • <output>/<Name>/<Name>/bin/Debug/netstandard2.0/Skyline.DataMiner.Utils.<Name>.dll
       • <output>/<Name>Frontend/
-      • <output>/<Name>UDAPI/<Name>UDAPI/bin/Debug/net48/openapi/openapi.yaml
+      • <output>/<Name>Backend/<Name>UDAPI/bin/Debug/net48/openapi/openapi.yaml
 
     NuGet packages required (from --nuget-feed):
       • Skyline.DataMiner.Aspire.AutomationHost + .Hosting
       • Skyline.DataMiner.Aspire.UdapiProxy + .Hosting
       • Skyline.DataMiner.Aspire.DllWatcher + .Hosting
+      • Skyline.DataMiner.Aspire.AiCoworker + .Hosting
     """);
 }
 
@@ -766,6 +1003,10 @@ static void PrintUsage()
 class AspireConfig
 {
     public SolutionConfig Solution { get; set; } = new();
+    public ModelConfig? MainModel { get; set; }
+    public List<ModelConfig>? Models { get; set; }
+    public List<EnumConfig>? Enums { get; set; }
+    public List<SubObjectConfig>? SubObjects { get; set; }
 }
 
 class SolutionConfig
@@ -776,4 +1017,36 @@ class SolutionConfig
     public string? ApiDescription { get; set; }
     public string? NugetPackageId { get; set; }
     public string? DomModuleId { get; set; }
+}
+
+class ModelConfig
+{
+    public string Name { get; set; } = "";
+    public List<PropertyConfig>? Properties { get; set; }
+    public List<ListConfig>? Lists { get; set; }
+}
+
+class PropertyConfig
+{
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "string";
+    public string? Enum { get; set; }
+}
+
+class ListConfig
+{
+    public string Name { get; set; } = "";
+    public string Type { get; set; } = "";
+}
+
+class EnumConfig
+{
+    public string Name { get; set; } = "";
+    public List<string> Values { get; set; } = new();
+}
+
+class SubObjectConfig
+{
+    public string Name { get; set; } = "";
+    public List<PropertyConfig>? Properties { get; set; }
 }
