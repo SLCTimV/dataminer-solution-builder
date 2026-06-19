@@ -88,6 +88,7 @@ const JSON_API = `${window.location.protocol}//${window.location.host}/API/v1/Js
 const STORAGE_KEY = 'dmConnection';
 const SCRIPT_NAME = '<SolutionName>UDAPI';  // e.g. 'SDMWorldEventUDAPI'
 const SCRIPT_FOLDER = '';
+const ROUTE = '<apiRoute>';                 // e.g. 'worldeventmanager'
 
 // Auth functions: login(), restoreSession(), logout()
 // Uses ConnectAppAndInfo for login, GetSecurityInfo for session restore
@@ -97,15 +98,20 @@ const SCRIPT_FOLDER = '';
 // { host: window.location.host, connection: '', login, password,
 //   clientAppName: '<AppName>', clientAppVersion: '1.0.0', clientComputerName: 'WebApp' }
 
-// UDAPI wrapper: callUdapiScript(connection, requestMethod, rawBody, queryParameters)
+// UDAPI wrapper: executeApiTrigger(connection, requestMethod, path, rawBody, queryParameters)
 // requestMethod: 1=GET, 2=PUT, 3=POST, 4=DELETE
+// CRITICAL: `path` (e.g. '/<models>') must be appended to Route, NOT placed in QueryParameters.
+//   Route: `${ROUTE}${path}`,          ← CORRECT: "worldeventmanager/troubleTickets"
+//   QueryParameters: queryParameters,  ← only real query params (filter, orderby, id, etc.)
+// NEVER put `path` in QueryParameters — the UDAPI framework routes on the Route field only
+// and ignores QueryParameters.path, causing "Could not find a matching route handler".
 // Reads ScriptOutput key 'ApiTriggerOutput', parses ResponseCode + ResponseBody
 
 // Per-model CRUD functions:
-// get<Models>(connection, filter?) → callUdapiScript(connection, 1, '', queryParams)
-// create<Model>(connection, data) → callUdapiScript(connection, 3, JSON.stringify(data))
-// update<Model>(connection, data) → callUdapiScript(connection, 4, JSON.stringify(data))
-// delete<Model>(connection, id) → callUdapiScript(connection, 5, '', {id})
+// get<Models>(connection, filter?) → executeApiTrigger(connection, 1, '/<models>', '', queryParams)
+// create<Model>(connection, data) → executeApiTrigger(connection, 3, '/<models>', JSON.stringify(data))
+// update<Model>(connection, data) → executeApiTrigger(connection, 4, '/<models>', JSON.stringify(data))
+// delete<Model>(connection, id) → executeApiTrigger(connection, 5, '/<models>', '', {id})
 ```
 
 ### 3. ExecuteAutomationScriptWithOutput Payload
@@ -123,11 +129,12 @@ const SCRIPT_FOLDER = '';
       Name: 'ApiTriggerInput',
       Value: JSON.stringify({
         RequestMethod: requestMethod,  // 1=GET, 2=PUT, 3=POST, 4=DELETE
-        Route: '<apiRoute>',           // from solution config
+        Route: `${ROUTE}${path}`,      // MUST include the full path, e.g. 'worldeventmanager/troubleTickets'
+                                       // NEVER split path into QueryParameters — UDAPI only routes on Route
         RawBody: rawBody,
         Parameters: {},
         Context: { TokenId: '00000000-0000-0000-0000-000000000000' },
-        QueryParameters: queryParameters,
+        QueryParameters: queryParameters,  // only real query params: filter, orderby, id, etc.
       }),
     }],
     Dummies: [],
