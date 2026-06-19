@@ -198,11 +198,15 @@ Output: <OutputDir>/SDM<Domain>Frontend/
 **Action**: Generate the DocFX documentation site and package it:
 1. Scaffold the documentation structure (folders, `docfx.json`, Skyline template)
 2. Fill in content from SolutionDescription.md, YAML model, and openapi.yaml
-3. Build the site: `docfx build docfx.json`
-4. Package into a `.dmapp` installer
+3. Extract API metadata: `docfx metadata docfx.json` (generates C# API reference from devpack)
+4. Build the site: `docfx build docfx.json`
+5. Package into a `.dmapp` installer
 
 **Input**: YAML from Step 1 + SolutionDescription.md + openapi.yaml from backend
-**Validation**: `docfx build` succeeds and `_site/` folder is produced
+**Validation**: `docfx build` succeeds, `_site/` folder is produced, and `devpack/api/` is non-empty
+
+**CRITICAL**: `docfx metadata` MUST run before `docfx build`. Without it, the API
+Reference section will be empty (404 errors).
 
 ```powershell
 # Scaffold
@@ -210,6 +214,9 @@ dotnet run dataminer-documentation-builder/dataminer-docfx-builder/New-DocfxBuil
   -i <yaml> -o <output-dir>
 
 # Fill content (agent-driven — see docfx-builder SKILL.md)
+
+# Extract API metadata (MANDATORY — generates C# API reference from devpack)
+cd <OutputDir>/SDM<Domain>Documentation && docfx metadata docfx.json && cd -
 
 # Build site
 cd <OutputDir>/SDM<Domain>Documentation && docfx build docfx.json && cd -

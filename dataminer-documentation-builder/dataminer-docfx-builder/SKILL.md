@@ -166,25 +166,27 @@ Fill in:
 
 ---
 
-## Running DocFX Metadata
-
-After filling content, run metadata extraction for the devpack API reference:
-
-```powershell
-cd <OutputDir>/<SolutionName>Documentation
-docfx metadata docfx.json
-```
-
-This generates YAML API reference files in `devpack/api/` from the C# XML documentation
-in the devpack project. These files are automatically included in the build.
-
 ## Building the Site
 
+After filling content, you MUST run both `docfx metadata` and `docfx build` in order:
+
 ```powershell
 cd <OutputDir>/<SolutionName>Documentation
+
+# Step 1: Extract C# API metadata from the devpack project
+# MANDATORY — without this, devpack/api/ will be empty and API Reference links return 404
+docfx metadata docfx.json
+
+# Step 2: Build the static HTML site
 docfx build docfx.json
+
+# Preview locally
 docfx serve _site
 ```
+
+**CRITICAL**: `docfx build` alone does NOT extract C# API metadata. You must run
+`docfx metadata` first. Skipping it leaves `devpack/api/` empty — the API Reference
+section will show 404 errors.
 
 Open `http://localhost:8080` to preview.
 

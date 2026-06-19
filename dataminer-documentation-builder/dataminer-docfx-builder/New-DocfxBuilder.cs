@@ -113,8 +113,9 @@ Console.WriteLine($"  Location: {docsFolder}");
 Console.WriteLine();
 Console.WriteLine("Next steps:");
 Console.WriteLine("  1. Fill in the placeholder content (see SKILL.md for guidance)");
-Console.WriteLine("  2. Run: docfx build docfx.json");
-Console.WriteLine("  3. Run: docfx serve _site");
+Console.WriteLine("  2. Run: docfx metadata docfx.json  (extracts C# API reference from devpack)");
+Console.WriteLine("  3. Run: docfx build docfx.json");
+Console.WriteLine("  4. Run: docfx serve _site");
 
 return 0;
 
