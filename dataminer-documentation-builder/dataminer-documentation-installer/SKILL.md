@@ -71,7 +71,7 @@ http://<dataminer-host>/public/Documentation/<SolutionName>/index.html
 
 If documentation content changes (markdown files updated, new pages added):
 
-1. Rebuild the DocFX site: `docfx build docfx.json` (in the Documentation folder)
+1. Rebuild the DocFX site: `docfx metadata docfx.json && docfx build docfx.json` (in the Documentation folder)
 2. Re-run this script — it always cleans and re-copies the `_site` folder
 3. The rebuilt package will contain the latest documentation
 

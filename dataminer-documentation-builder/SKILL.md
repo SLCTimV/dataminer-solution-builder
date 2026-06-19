@@ -168,7 +168,7 @@ http://<dataminer-host>/public/Documentation/<SolutionName>/index.html
 If documentation source files change:
 
 1. Re-run the DocFX Builder (or just edit markdown files directly)
-2. Rebuild: `docfx build docfx.json`
+2. Rebuild: `docfx metadata docfx.json && docfx build docfx.json`
 3. Re-run the Documentation Installer — it always re-copies the latest `_site`
 
 ---

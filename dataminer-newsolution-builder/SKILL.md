@@ -151,16 +151,44 @@ the local path is registered before the backend scripts run.
 ### Step 3: Backend Builder
 
 **Skill**: `dataminer-backend-builder`
-**Script**: `dataminer-backend-builder/New-Backend.cs` (orchestrates sub-scripts)
 
-**Action**: Generate the full backend automation solution:
-- UDAPI automation script (REST controller)
-- GQI ad-hoc data sources
-- Assistant markdown files (agent-guided: one skill per user flow, one agent per user role)
-- Installer package (DOM + UDAPI registration)
+**Action**: Generate the full backend automation solution by running 5 sub-steps in order:
+
+```powershell
+$yaml = "<path-to-input.yaml>"
+$out  = "<output-directory>"
+
+# 3a. Create backend solution
+dotnet run dataminer-backend-builder/New-Backend.cs -- -i $yaml -o $out
+
+# 3b. Add UDAPI automation project (controllers + OpenAPI spec)
+dotnet run dataminer-backend-builder/dataminer-udapi-builder/New-Udapi.cs -- -i $yaml -o $out
+
+# 3c. Add GQI ad-hoc data sources
+dotnet run dataminer-backend-builder/dataminer-adhoc-builder/New-Adhoc.cs -- -i $yaml -o $out
+
+# 3d. Add installer package (DOM + UDAPI registration)
+dotnet run dataminer-backend-builder/dataminer-backend-installer/New-BackendInstaller.cs -- -i $yaml -o $out
+
+# 3e. Scaffold assistant MD file directories
+dotnet run dataminer-backend-builder/dataminer-assistant-mdfiles/New-AssistantMdFiles.cs -- -i $yaml -o $out
+```
+
+**Step 3e is AGENT-GUIDED** — after running the scaffolder:
+1. Read `dataminer-backend-builder/dataminer-assistant-mdfiles/SKILL.md`
+2. Follow all 6 steps in that skill to **create the actual content**:
+   - Adhoc `.md` files (one per model and sub-object)
+   - Script `.md` file for the UDAPI tool
+   - Skill folders with `SKILL.md` (one per user flow from `UserFlows.md`)
+   - Agent folders with `agent.md` (one per user role from `UserRoles.md`)
+3. Present the validation table to the user
+
+**CRITICAL**: Do NOT skip Step 3e content generation. The scaffolder only creates
+empty directories — the agent must write the actual markdown files. Without them,
+the DataMiner Assistant cannot interact with the solution.
 
 **Input**: YAML from Step 1 + DevPack NuGet from Step 2
-**Validation**: `dotnet build` of the backend .slnx succeeds
+**Validation**: `dotnet build` of the backend .slnx succeeds AND `SetupContent/` contains adhocs, scripts, skills, and agents with non-empty content
 
 ```
 Output: <OutputDir>/SDM<Domain>Backend/

@@ -52,9 +52,9 @@ Execute the 8 stages in order:
 
 1. **Model Analyzer** — analyze the user's requirements, produce YAML + SolutionDescription.md
 2. **DevPack Builder** — generate NuGet package (models, API helpers, DomMapper)
-3. **Backend Builder** — generate UDAPI + GQI + Installer
+3. **Backend Builder** — generate UDAPI + GQI + Installer + **Assistant MD Files** (agent-guided content)
 4. **Frontend Builder** — use the `dataminer-frontend-builder` skill (which delegates to DataMiner App Builder agent)
-5. **Documentation Builder** — scaffold DocFX site, fill content, build, and package into .dmapp
+5. **Documentation Builder** — scaffold DocFX site, fill content, run `docfx metadata` + `docfx build`, and package into .dmapp
 6. **Aspire Integration** — generate local dev environment (includes docs site if built)
 7. **Solution Tester** — scaffold and run tests (smoke + E2E)
 8. **Validation & Tutorial Generation** — verify everything works, capture UI screenshots, extend docs with tutorials
@@ -62,8 +62,9 @@ Execute the 8 stages in order:
 **Key rules:**
 - Present the YAML model to the user for approval after Step 1
 - Validate each stage builds successfully before proceeding
+- For Step 3 (Backend): after running all sub-scripts, **you must follow `dataminer-assistant-mdfiles/SKILL.md` to write the actual content files** (adhocs, script tool, skills, agents). The scaffolder only creates directories — do NOT skip content generation.
 - For Step 4 (Frontend), load and follow the `dataminer-frontend-builder` skill
-- For Step 5 (Documentation), load and follow the `dataminer-documentation-builder` skill
+- For Step 5 (Documentation), load and follow the `dataminer-documentation-builder` skill. Always run `docfx metadata docfx.json` before `docfx build docfx.json`.
 - For Step 7, start Aspire and run both UDAPI smoke + Playwright tests
 - For Step 8, Aspire must be running — use Playwright to capture screenshots for tutorials
 
@@ -153,6 +154,7 @@ After adding tutorial pages:
 
 ```powershell
 cd <OutputDir>/SDM<Domain>Documentation
+docfx metadata docfx.json
 docfx build docfx.json
 ```
 
@@ -307,6 +309,7 @@ report the results as a summary.
 2. **Rebuild the DocFX site**:
    ```powershell
    cd <SolutionName>Documentation
+   docfx metadata docfx.json
    docfx build docfx.json
    ```
 3. **Restart the Aspire docs resource** so the running site serves the updated `_site/`:

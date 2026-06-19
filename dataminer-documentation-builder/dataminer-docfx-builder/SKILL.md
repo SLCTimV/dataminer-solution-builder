@@ -207,6 +207,7 @@ Before marking documentation as complete, verify:
 - [ ] All `<!-- TODO -->` comments have been replaced with real content
 - [ ] Code examples compile and use correct property names from the YAML model
 - [ ] API routes in webapi/ match the actual `openapi.yaml`
+- [ ] `docfx metadata` completes without errors (API reference generated)
 - [ ] `docfx build` completes without errors
 - [ ] Navigation (toc.yml) links resolve correctly
 - [ ] Dark mode renders correctly (check alerts, code blocks, tables)
