@@ -251,13 +251,17 @@ Frontend change → Frontend E2E tests
 2. Add/modify tests as requested
 3. Run and verify they pass
 
-### Step 4: Validate Changes
+### Step 4: Post-Change Checklist (Automatic)
 
-After ANY change, always validate:
+After ANY change — regardless of layer — **always** run through this checklist
+automatically. Do NOT wait for the user to ask. Execute each step in order and
+report the results as a summary.
+
+#### 4a. Validate with Tests
 
 1. **Start Aspire** (if not already running):
    ```powershell
-   dotnet run --project <SolutionName>Aspire/AspireSDM.AppHost --launch-profile http
+   aspire start --non-interactive --apphost <AppHostPath>
    ```
 
 2. **Run UDAPI smoke test**:
@@ -279,82 +283,45 @@ After ANY change, always validate:
    - If the change added a new endpoint → add a new k6 test scenario
    - If the change added a new UI feature → add a new Playwright test
 
-5. **Report results** to the user:
-   ```
-   ✓ UDAPI smoke: X/X checks pass
-   ✓ Playwright: X passed, Y skipped
-   ```
+#### 4b. Update Documentation
 
-### Step 5: Update Documentation
-
-After all tests pass, update the documentation to reflect the change:
-
-1. **Update content pages** — if model/API/UI changed, edit the relevant markdown files:
-   - Model changes → update `devpack/index.md` and model reference sections
-   - API changes → update `webapi/endpoints.md` and `webapi/examples.md`
-   - UI changes → update tutorial screenshots and step descriptions
-
-2. **Re-capture screenshots** (if UI changed) — with Aspire running, use Playwright to
-   take new screenshots of affected workflows and replace outdated images
-
-3. **Rebuild the DocFX site**:
+1. **Check if docs are stale** — compare the change against existing docs:
+   - Model/API changes → update `devpack/index.md`, `webapi/endpoints.md`, `webapi/examples.md`
+   - UI changes → re-capture screenshots and update tutorial pages
+   - New features → add new documentation sections
+2. **Rebuild the DocFX site**:
    ```powershell
    cd <SolutionName>Documentation
    docfx build docfx.json
    ```
 
-4. **Verify** the docs site reflects the changes at `http://localhost:5200`
+#### 4c. Rebuild Installer Packages
 
-### Step 6: Rebuild Installer Packages
+Rebuild every installer affected by the change so `.dmapp` files stay in sync:
 
-After changes are validated and documentation is updated, rebuild the affected installer
-packages so the `.dmapp` files are in sync with the source:
+| Changed Layer | Action |
+|--------------|--------|
+| Backend / Assistant MD | `dotnet build <Name>Backend/<Name>Backend.Package/<Name>Backend.Package.csproj` |
+| Frontend UI | `npm run build` in frontend dir, then `dotnet run New-UiInstaller.cs -- -i <yaml> -o <output-dir>` |
+| Documentation | `dotnet run New-DocumentationInstaller.cs -- -i <yaml> -o <output-dir>` |
 
-#### If Assistant MD files changed (backend SetupContent):
+**Rule**: Any time source files that end up in a `.dmapp` package are modified, the
+corresponding installer package MUST be rebuilt before reporting completion.
 
-```powershell
-cd dataminer-backend-builder/dataminer-assistant-mdfiles
-dotnet run New-AssistantMdFiles.cs -- -i <yaml> -o <output-dir>
+#### 4d. Report Results
+
+Present a summary to the user:
+
+```
+Post-change validation:
+  ✓ UDAPI smoke: X/X checks pass
+  ✓ Playwright E2E: X passed
+  ✓ Documentation: rebuilt, up to date
+  ✓ Installers: <list of rebuilt packages>
 ```
 
-Then rebuild the backend package:
-```powershell
-cd <OutputDir>/<SolutionName>Backend/<SolutionName>Backend.Package
-dotnet build
-```
-
-#### If Frontend UI changed:
-
-1. Build the frontend:
-   ```powershell
-   cd <OutputDir>/<SolutionName>Frontend
-   npm run build
-   ```
-
-2. Re-run the UI installer (copies `dist/` into CompanionFiles and rebuilds the package):
-   ```powershell
-   cd dataminer-frontend-builder/dataminer-ui-installer
-   dotnet run New-UiInstaller.cs -- -i <yaml> -o <output-dir>
-   ```
-
-#### If Documentation changed:
-
-Re-run the documentation installer (copies `_site/` into CompanionFiles and rebuilds):
-```powershell
-cd dataminer-documentation-builder/dataminer-documentation-installer
-dotnet run New-DocumentationInstaller.cs -- -i <yaml> -o <output-dir>
-```
-
-#### Summary of installer scripts:
-
-| Changed Layer | Installer Script | Package Output |
-|--------------|-----------------|----------------|
-| Backend / Assistant MD | `New-BackendInstaller.cs` or `New-AssistantMdFiles.cs` + `dotnet build` | `<Name>Backend/<Name>Backend.Package/` |
-| Frontend UI | `New-UiInstaller.cs` | `<Name>Frontend/<Name>Frontend.Package/` |
-| Documentation | `New-DocumentationInstaller.cs` | `<Name>Documentation/<Name>Documentation.Package/` |
-
-**Rule**: Any time you modify source files that end up in a `.dmapp` package, you MUST
-rebuild the corresponding installer package before reporting completion to the user.
+Only report completion after ALL substeps pass. If any step fails, fix the issue
+and re-run that step before proceeding.
 
 ---
 
@@ -381,13 +348,14 @@ When delegating to the **DataMiner App Builder** agent, always provide:
 
 ## Key Rules
 
-1. **Always validate with tests** after any change — never skip
-2. **Small frontend changes can be made directly** — delegate to DataMiner App Builder only for large structural changes
-3. **Model changes cascade** — update all downstream layers
-4. **DateTime rule**: Never send `null` DateTimes — omit the field entirely
-5. **Aspire auth failures are expected** — ignore auth-related fuzz/test failures on localhost
-6. **Create new tests** when the change introduces new behavior not covered by existing tests
-7. **Present changes to user** before committing — show what was modified and test results
+1. **Post-change checklist is automatic** — after ANY change, always run Step 4 (tests → docs → installers → report) without waiting for the user to ask
+2. **Always validate with tests** after any change — never skip
+3. **Small frontend changes can be made directly** — delegate to DataMiner App Builder only for large structural changes
+4. **Model changes cascade** — update all downstream layers
+5. **DateTime rule**: Never send `null` DateTimes — omit the field entirely
+6. **Aspire auth failures are expected** — ignore auth-related fuzz/test failures on localhost
+7. **Create new tests** when the change introduces new behavior not covered by existing tests
+8. **Present changes to user** before committing — show what was modified and test results
 
 ---
 
