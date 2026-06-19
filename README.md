@@ -1,6 +1,111 @@
 # DataMiner Solution Builder
 
-An AI-agent pipeline that generates a complete DataMiner SDM solution from a natural-language prompt or an existing document.
+An AI-agent pipeline that generates a complete DataMiner SDM solution from a natural-language prompt or requirements document — including backend, frontend, documentation, local dev environment, and automated tests.
+
+---
+
+## Prerequisites
+
+### Required SDKs
+
+| SDK | Version | Install | Used By |
+|-----|---------|---------|---------|
+| .NET SDK | 10+ | `winget install Microsoft.DotNet.SDK.10` | All scaffolder scripts, Aspire AppHost, ServiceDefaults, UdapiProxy, DllWatcher |
+| .NET Framework 4.8 Dev Pack | 4.8 | [Download](https://dotnet.microsoft.com/download/dotnet-framework/net48) | AutomationHost, UDAPI project, GQI project (net48 targets) |
+| Node.js + npm | 18+ LTS | `winget install OpenJS.NodeJS` | Frontend (Vite + React), Playwright tests |
+
+### Required .NET Global Tools
+
+| Tool | Install Command | Used By |
+|------|----------------|---------|
+| DataMiner Templates | `dotnet new install Skyline.DataMiner.VisualStudioTemplates` | DevPack Builder, Backend Builder (automation/package project templates) |
+| SDM CLI | `dotnet tool install --global skyline.dataminer.sdm.tools` | DevPack Builder (generates `DomMapper.g.cs` files) |
+| DocFX | `dotnet tool install --global docfx` | Documentation Builder (`docfx metadata` + `docfx build`) |
+| Aspire CLI | `dotnet tool install --global aspire` | Solution Tester (start/stop/resource management) |
+
+### Required External Tools
+
+| Tool | Install Command | Used By | Notes |
+|------|----------------|---------|-------|
+| Foundry Local | `winget install Microsoft.AI.Foundry.Local` | Aspire Integration (AI Coworker component) | Must be running (`foundry service start`) |
+| k6 | `winget install GrafanaLabs.k6` | UDAPI Tester (smoke + load tests) | |
+| Schemathesis | `pip install schemathesis` | UDAPI Tester (fuzz tests) | Requires Python 3.11+ |
+| Playwright | `npx playwright install` | Frontend Tester (E2E browser tests) | Installed per-project via npm |
+| Git | `winget install Git.Git` | Branch management | |
+| PowerShell 7+ | `winget install Microsoft.PowerShell` | Script execution | Included in Windows 11 |
+
+### Required NuGet Packages (Local Feed)
+
+The Aspire Integration requires 8 custom NuGet packages to be pre-built and available
+in a local NuGet feed (default: `C:\Users\Tim\source\nugets`):
+
+| Package | Version | Content |
+|---------|---------|---------|
+| `Skyline.DataMiner.Aspire.AutomationHost` | 1.0.0 | .NET Framework 4.8 script runner executable |
+| `Skyline.DataMiner.Aspire.AutomationHost.Hosting` | 1.0.0 | `AddAutomationHost()` Aspire extension (net10.0) |
+| `Skyline.DataMiner.Aspire.UdapiProxy` | 1.0.0 | REST proxy executable with Scalar UI (net10.0) |
+| `Skyline.DataMiner.Aspire.UdapiProxy.Hosting` | 1.0.0 | `AddUdapiProxy()` Aspire extension (net10.0) |
+| `Skyline.DataMiner.Aspire.DllWatcher` | 1.0.0 | File watcher for hot-reload (net10.0) |
+| `Skyline.DataMiner.Aspire.DllWatcher.Hosting` | 1.0.0 | `AddDllWatcher()` Aspire extension (net10.0) |
+| `Skyline.DataMiner.Aspire.AiCoworker` | 1.0.0 | AI assistant integration component |
+| `Skyline.DataMiner.Aspire.AiCoworker.Hosting` | 1.0.0 | `AddAiCoworker()` Aspire extension (net10.0) |
+
+Build from source in this repo:
+
+```powershell
+# UdapiProxy
+cd dataminer-aspire-integration/UdapiProxy/src/Skyline.DataMiner.Aspire.UdapiProxy
+dotnet publish -c Release && dotnet pack -c Release --no-build -o C:\Users\Tim\source\nugets
+
+# DllWatcher
+cd dataminer-aspire-integration/DllWatcher/src/Skyline.DataMiner.Aspire.DllWatcher
+dotnet publish -c Release && dotnet pack -c Release --no-build -o C:\Users\Tim\source\nugets
+
+# AutomationHost (net48)
+cd dataminer-aspire-integration/AutomationHost/src/Skyline.DataMiner.Aspire.AutomationHost
+dotnet publish -c Release && dotnet pack -c Release --no-build -o C:\Users\Tim\source\nugets
+```
+
+Repeat for each `*.Hosting` project in the same directories.
+
+### Aspire AppHost Dependencies (auto-restored from nuget.org)
+
+These are referenced by the generated AppHost project and restored automatically:
+
+| Package | Version |
+|---------|---------|
+| `Aspire.AppHost.Sdk` | 13.4.4 |
+| `Aspire.Hosting.NodeJs` | 9.5.2 |
+| `Aspire.Hosting.Foundry` | 13.4.0-preview.1.26281.18 |
+| `Microsoft.Extensions.Http.Resilience` | 10.2.0 |
+| `Microsoft.Extensions.ServiceDiscovery` | 10.2.0 |
+| `OpenTelemetry.Exporter.OpenTelemetryProtocol` | 1.15.3 |
+| `OpenTelemetry.Extensions.Hosting` | 1.15.3 |
+| `OpenTelemetry.Instrumentation.AspNetCore` | 1.15.2 |
+| `OpenTelemetry.Instrumentation.Http` | 1.15.1 |
+| `OpenTelemetry.Instrumentation.Runtime` | 1.15.1 |
+
+### Quick Install (All Prerequisites)
+
+```powershell
+# SDKs
+winget install Microsoft.DotNet.SDK.10
+winget install OpenJS.NodeJS
+
+# .NET global tools
+dotnet new install Skyline.DataMiner.VisualStudioTemplates
+dotnet tool install --global skyline.dataminer.sdm.tools
+dotnet tool install --global docfx
+dotnet tool install --global aspire
+
+# External tools
+winget install Microsoft.AI.Foundry.Local
+winget install GrafanaLabs.k6
+pip install schemathesis
+
+# Playwright (per-project, run after npm install)
+npx playwright install
+```
 
 ---
 
@@ -10,38 +115,138 @@ An AI-agent pipeline that generates a complete DataMiner SDM solution from a nat
 Prompt / Document
        │
        ▼
-┌─────────────────────┐
-│  1. Model Analyzer  │  Extracts business models → YAML spec
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  2. Devpack Builder │  Scaffolds the .NET solution skeleton
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  3. Backend Builder │  Generates DOM backend + UDAPI + GQI data source
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  4. Frontend Builder│  Builds a static DataMiner app (React/Vite)
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  5. Aspire          │  Wires local .NET Aspire integration for dev/test
-└─────────┬───────────┘
-          │
-          ▼
-┌─────────────────────┐
-│  6. Solution Tester │  Smoke, load & fuzz tests against the API
-└─────────────────────┘
+┌──────────────────────────┐
+│  1. Model Analyzer       │  Extracts domain → YAML + SolutionDescription + UserRoles + UserFlows
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  2. DevPack Builder      │  Generates NuGet devpack (models, API helpers, DomMapper, DOM installer)
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  3. Backend Builder      │  UDAPI + GQI + Assistant MD files + Backend installer
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  4. Frontend Builder     │  React + Vite SPA + UI installer (.dmapp)
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  5. Documentation Builder│  DocFX site + Documentation installer (.dmapp)
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  6. Aspire Integration   │  Local dev environment (AutomationHost, UdapiProxy, DllWatcher)
+└──────────┬───────────────┘
+           │
+           ▼
+┌──────────────────────────┐
+│  7. Solution Tester      │  k6 smoke/load tests + Schemathesis fuzz + Playwright E2E
+└──────────────────────────┘
 ```
 
-Each stage is implemented as an independent agent in its own subfolder.  
-The top-level orchestrator (`DataMiner Solution Creator` skill) coordinates them in sequence.
+Each stage is implemented as an independent agent with its own SKILL.md and scaffolder script.
+The top-level orchestrator (`dataminer-solution-builder.agent.md`) routes new solutions through
+the full pipeline and routes change requests to the correct layer.
+
+---
+
+## Features
+
+### Stage 1: Model Analyzer
+
+- Parses natural language descriptions, Word/PDF/text documents into structured output
+- Produces canonical YAML domain model spec consumed by all downstream stages
+- Generates `SolutionDescription.md` (human-readable solution overview)
+- Generates `UserRoles.md` (roles + permissions for DataMiner Assistant agents)
+- Generates `UserFlows.md` (user workflows for DataMiner Assistant skills)
+
+### Stage 2: DevPack Builder
+
+- Scaffolds complete .NET solution with SDK-style projects
+- Generates C# model classes (`SdmObject<T>`, enums, sub-objects)
+- Generates API helper interfaces and implementations
+- Runs SDM DomMapper CLI to produce `DomMapper.g.cs` files
+- Generates DOM installer (section definitions, field descriptors, DOM definitions)
+- Generates `Package.cs` installer entry point
+- Builds and outputs NuGet package (`.nupkg`)
+
+### Stage 3: Backend Builder
+
+Orchestrates 5 sub-scripts in sequence:
+
+| Sub-step | Script | Output |
+|----------|--------|--------|
+| 3a. Solution | `New-Backend.cs` | Empty `{Name}Backend.slnx` |
+| 3b. UDAPI | `New-Udapi.cs` | Automation project with REST controllers + `openapi.yaml` |
+| 3c. GQI | `New-Adhoc.cs` | Ad-hoc data sources (one per model + sub-object) |
+| 3d. Installer | `New-BackendInstaller.cs` | `.Package` project with DOM + UDAPI registration |
+| 3e. Assistant | `New-AssistantMdFiles.cs` + agent | DataMiner Assistant context files (see below) |
+
+**Assistant MD Files** (agent-guided):
+- Ad-hoc data source descriptions (one `.md` per GQI source)
+- Script tool description for the UDAPI
+- Skills (one per user flow from `UserFlows.md`)
+- Agents (one per user role from `UserRoles.md`)
+- Enforces platform constraints (8192 char limit, name rules, folder matching)
+
+### Stage 4: Frontend Builder
+
+- Delegates to `DataMiner App Builder` agent for React + Vite SPA generation
+- CRUD pages per model with data tables, modals, filtering/sorting
+- Sub-object management within parent entities
+- DateTime handling (omit nulls, guard `0001-01-01`)
+- Packages frontend into `.dmapp` via UI installer
+
+### Stage 5: Documentation Builder
+
+- Scaffolds DocFX site with Skyline branding and dark-mode template
+- Fills content from SolutionDescription.md, YAML model, and openapi.yaml
+- Extracts C# API reference via `docfx metadata` from devpack XML docs
+- Builds static HTML site with `docfx build`
+- Packages into `.dmapp` installer for deployment to DataMiner `Webpages/Public/Documentation/`
+
+### Stage 6: Aspire Integration
+
+Local development environment with no DataMiner agent required:
+
+| Component | Purpose |
+|-----------|---------|
+| **AutomationHost** | .NET Framework 4.8 script runner (executes backend DLL code) |
+| **UdapiProxy** | REST proxy translating HTTP → ApiTriggerInput/Output; includes Scalar OpenAPI UI |
+| **DllWatcher** | Monitors DLL changes, triggers hot-reload and AutomationHost restart |
+| **ApiService** | Mock DataMiner Web API + frontend static file hosting |
+| **Frontend dev server** | Vite dev server with HMR |
+| **Documentation site** | `docfx serve _site` for local documentation preview |
+
+All components are distributed as NuGet tool packages and orchestrated by a single AppHost.
+
+### Stage 7: Solution Tester
+
+- **UDAPI tests**: k6 smoke tests, load tests, Schemathesis fuzz tests against REST endpoints
+- **Frontend tests**: Playwright E2E tests (CRUD operations, navigation, error states)
+- Tests run against both local Aspire (`localhost`) and deployed DataMiner
+- Iterates until all tests pass, fixing issues in the appropriate layer
+
+### Top-Level Orchestrator
+
+The `dataminer-solution-builder.agent.md` handles two request types:
+
+| Type | Action |
+|------|--------|
+| **New solution** | Runs full pipeline (Stages 1–7) + tutorial generation with screenshots |
+| **Change request** | Routes to correct layer, validates with tests, updates docs automatically |
+
+**Post-change automation** (after any modification):
+- Runs relevant tests (mapped by change type)
+- Updates documentation and rebuilds DocFX site
+- Rebuilds affected installer packages
+- Restarts Aspire resources as needed
 
 ---
 
@@ -49,18 +254,20 @@ The top-level orchestrator (`DataMiner Solution Creator` skill) coordinates them
 
 | Folder | Stage | Description |
 |--------|-------|-------------|
-| [`dataminer-model-analyzer/`](dataminer-model-analyzer/) | 1 | Parse domain descriptions (natural language or document) into a structured YAML spec |
-| [`dataminer-devpack-builder/`](dataminer-devpack-builder/) | 2 | Scaffold the Visual Studio solution skeleton (`.sln`, project files, NuGet references) |
-| [`dataminer-backend-builder/`](dataminer-backend-builder/) | 3 | Generate DOM backend, UDAPI automation script, GQI ad-hoc data source, and `openapi.yaml` |
-| [`dataminer-frontend-builder/`](dataminer-frontend-builder/) | 4 | Build the static DataMiner low-code app frontend from `openapi.yaml` |
-| [`dataminer-aspire-integration/`](dataminer-aspire-integration/) | 5 | Add `.NET Aspire` local dev integration (ScriptHost sidecar, ApiService, dashboard) |
-| [`dataminer-solution-tester/`](dataminer-solution-tester/) | 6 | Run smoke, load and property-based fuzz tests (k6 + Schemathesis + CATS) |
+| [`dataminer-model-analyzer/`](dataminer-model-analyzer/) | 1 | Parse domain descriptions into structured YAML spec |
+| [`dataminer-devpack-builder/`](dataminer-devpack-builder/) | 2 | Generate NuGet devpack (models, API helpers, DomMapper, DOM installer) |
+| [`dataminer-backend-builder/`](dataminer-backend-builder/) | 3 | Generate UDAPI + GQI + Assistant MD files + backend installer |
+| [`dataminer-frontend-builder/`](dataminer-frontend-builder/) | 4 | Build React + Vite SPA + UI installer |
+| [`dataminer-documentation-builder/`](dataminer-documentation-builder/) | 5 | Generate DocFX site + documentation installer |
+| [`dataminer-aspire-integration/`](dataminer-aspire-integration/) | 6 | .NET Aspire local dev environment (AutomationHost, UdapiProxy, DllWatcher) |
+| [`dataminer-solution-tester/`](dataminer-solution-tester/) | 7 | k6 smoke/load + Schemathesis fuzz + Playwright E2E tests |
+| [`dataminer-newsolution-builder/`](dataminer-newsolution-builder/) | — | Full pipeline orchestrator skill |
 
 ---
 
 ## YAML Spec — Canonical Format
 
-All stages communicate through a single YAML domain spec.  
+All stages communicate through a single YAML domain spec.
 The Model Analyzer writes it; all downstream stages read it.
 
 ```yaml
@@ -102,7 +309,7 @@ subObjects:
 openApiSpec: "openapi.yaml"
 ```
 
-### Supported property types
+### Supported Property Types
 
 | YAML type | C# / DataMiner type | Notes |
 |-----------|---------------------|-------|
@@ -119,7 +326,7 @@ openApiSpec: "openapi.yaml"
 
 ## Naming Conventions
 
-These are derived automatically from the domain name — never ask the user:
+Derived automatically from the domain name — never manually specified:
 
 | Concept | Convention | Example |
 |---------|-----------|---------|
@@ -128,52 +335,64 @@ These are derived automatically from the domain name — never ask the user:
 | NuGet package ID | `Skyline.DataMiner.Utils.SDM<DomainName>` | `Skyline.DataMiner.Utils.SDMEvent` |
 | API route | `<domainname>manager/<domainname>s` | `eventmanager/events` |
 | UDAPI script name | `SDM<DomainName>UDAPI` | `SDMEventUDAPI` |
-| Frontend folder | `<AppId>Frontend` | `EventFrontend` |
-| AppId | Domain name (no `SDM` prefix) | `Event` |
+| Backend solution | `SDM<DomainName>Backend` | `SDMEventBackend` |
+| Frontend folder | `SDM<DomainName>Frontend` | `SDMEventFrontend` |
+| Documentation folder | `SDM<DomainName>Documentation` | `SDMEventDocumentation` |
+| Aspire folder | `SDM<DomainName>Aspire` | `SDMEventAspire` |
+| Tester folder | `SDM<DomainName>Tester` | `SDMEventTester` |
 
 ---
 
-## Reference Repositories
-
-| Repository | Used by stage(s) | Purpose |
-|------------|-----------------|---------|
-| [`AICreateSDMBackendAndUDAPI`](../AICreateSDMBackendAndUDAPI) | 2, 3 | PowerShell generator scripts (`Generate-DataMinerBackend.ps1`), reference scripts, devpack builder |
-| [`DataMinerEventSolution`](../DataMinerEventSolution) | 3 | Reference implementation including the `SDMEventGQI` ad-hoc data source |
-| [`AspireSDMIntegration`](../AspireSDMIntegration) | 5 | Aspire AppHost, ApiService, ScriptHost sidecar, `Add-AspireIntegration.ps1` |
-| [`APITestingSolution`](../APITestingSolution) | 6 | k6, Schemathesis, and CATS test suites |
-| [`agents`](../agents) | orchestrator | Skill definitions (`DataMiner Solution Creator`, `DataMiner Backend Generator`, `DataMiner Domain Parser`) |
-
----
-
-## Orchestrator Skill
-
-The full pipeline is coordinated by the **DataMiner Solution Creator** skill located at:
-
-```
-C:\Users\Tim\source\repos\agents\skills\dataminer-solution-creator\SKILL.md
-```
-
-It delegates each stage to a specialist agent in sequence and produces a final summary table with all artifact paths, deployment URLs, and the UDAPI bearer token.
-
----
-
-## Quick Start (Manual)
+## Quick Start
 
 ```powershell
-# 1. Describe your domain as a YAML spec (or let the Model Analyzer generate one)
-# 2. Run the backend generator
-pwsh Generator\Generate-DataMinerBackend.ps1 -InputYaml .\MyDomainInput.yaml -OutputDir .\Output -MainLocation C:\temp\MyDomain
+# Set paths
+$yaml = "path/to/DomainInput.yaml"
+$out  = "C:\temp\output"
 
-# 3. Build backend + UDAPI
-pwsh .\Output\Generated_Backend.ps1
-pwsh .\Output\Generated_UDAPI.ps1
+# Stage 1: Model Analyzer (agent-driven — no script, follows SKILL.md)
 
-# 4. Build frontend (via DataMiner App Builder agent)
+# Stage 2: DevPack Builder
+dotnet run dataminer-devpack-builder/New-DevPack.cs -- -i $yaml -o $out
 
-# 5. Add Aspire for local testing
-pwsh C:\AspireSDMIntegration\Add-AspireIntegration.ps1 -WorkspacePath C:\temp\MyDomain
+# Stage 2b: Register local NuGet feed (required before backend)
+dotnet nuget add source "$out/SDM<Domain>/SDM<Domain>/bin/Debug" --name LocalSDM
 
-# 6. Run tests
-cd APITestingSolution
-run-tests.bat https://<dm-host>/api/custom <bearer-token>
+# Stage 3: Backend Builder (5 sub-steps)
+dotnet run dataminer-backend-builder/New-Backend.cs -- -i $yaml -o $out
+dotnet run dataminer-backend-builder/dataminer-udapi-builder/New-Udapi.cs -- -i $yaml -o $out
+dotnet run dataminer-backend-builder/dataminer-adhoc-builder/New-Adhoc.cs -- -i $yaml -o $out
+dotnet run dataminer-backend-builder/dataminer-backend-installer/New-BackendInstaller.cs -- -i $yaml -o $out
+dotnet run dataminer-backend-builder/dataminer-assistant-mdfiles/New-AssistantMdFiles.cs -- -i $yaml -o $out
+# Then follow dataminer-assistant-mdfiles/SKILL.md to create actual content
+
+# Stage 4: Frontend Builder (agent-driven — delegates to DataMiner App Builder)
+
+# Stage 5: Documentation Builder
+dotnet run dataminer-documentation-builder/dataminer-docfx-builder/New-DocfxBuilder.cs -- -i $yaml -o $out
+# Fill content (agent-driven)
+cd $out/SDM<Domain>Documentation
+docfx metadata docfx.json
+docfx build docfx.json
+dotnet run dataminer-documentation-builder/dataminer-documentation-installer/New-DocumentationInstaller.cs -- -i $yaml -o $out
+
+# Stage 6: Aspire Integration
+dotnet run dataminer-aspire-integration/New-AspireIntegration.cs -- -i $yaml -o $out
+
+# Stage 7: Solution Tester (agent-driven — starts Aspire, runs k6 + Playwright)
 ```
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Scaffolder scripts | .NET 10 single-file programs (`#:sdk`, `#:package` directives) |
+| Backend | .NET Framework 4.8 (DataMiner automation scripts) |
+| Frontend | React 18 + Vite + TypeScript |
+| Documentation | DocFX with Skyline dark-mode template |
+| Local dev | .NET Aspire (AppHost orchestration) |
+| API testing | k6 (smoke/load) + Schemathesis (fuzz) |
+| E2E testing | Playwright |
+| Package format | `.dmapp` (DataMiner Application Package) |
