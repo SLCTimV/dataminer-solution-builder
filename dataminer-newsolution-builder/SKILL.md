@@ -108,8 +108,43 @@ helpers, DomMapper, and DOM installer. Build the NuGet package.
 
 ```
 Output: <OutputDir>/SDM<Domain>/
-        <OutputDir>/SDM<Domain>/bin/Release/*.nupkg
+        <OutputDir>/SDM<Domain>/SDM<Domain>/bin/Debug/*.nupkg
 ```
+
+**Critical**: After `New-DevPack.cs` completes, verify the `.nupkg` exists at the
+expected path. The Backend Builder needs this package via a local NuGet source.
+
+---
+
+### Step 2b: Register Local NuGet Feed
+
+Before running the Backend Builder, ensure the devpack `.nupkg` is discoverable:
+
+```powershell
+# Verify the .nupkg was produced
+$nupkgDir = "<OutputDir>/SDM<Domain>/SDM<Domain>/bin/Debug"
+Get-ChildItem "$nupkgDir/*.nupkg"  # Must find at least one file
+
+# The Backend scripts (New-Udapi.cs, New-Adhoc.cs) automatically create a
+# nuget.config with a local source pointing to $nupkgDir. However, if the
+# backend solution already exists (e.g. re-running after a failure), the
+# nuget.config may reference a stale or wrong path.
+#
+# Fix: Ensure the backend's nuget.config contains the correct local source:
+$backendDir = "<OutputDir>/SDM<Domain>Backend"
+$nugetConfig = "$backendDir/nuget.config"
+if (Test-Path $nugetConfig) {
+    $content = Get-Content $nugetConfig -Raw
+    if (-not $content.Contains($nupkgDir)) {
+        dotnet nuget add source "$nupkgDir" --name "DevPackLocal" --configfile "$nugetConfig"
+    }
+}
+```
+
+**Why this step exists**: The DevPack NuGet package is only published locally (not
+to nuget.org). The Backend Builder references it by package ID. If `dotnet restore`
+cannot find the package, the build fails with "package not found". This step ensures
+the local path is registered before the backend scripts run.
 
 ---
 
@@ -285,6 +320,7 @@ Output: <OutputDir>/SDM<Domain>Tester/
 |-------|---------------|----------|
 | Model Analyzer | Ambiguous requirements | Ask user to clarify, regenerate YAML |
 | DevPack Builder | Compile error in generated models | Fix model class, rebuild NuGet |
+| Backend Builder | DevPack package not found in NuGet sources | Run Step 2b: verify .nupkg exists, add local source to nuget.config, then `dotnet restore` |
 | Backend Builder | Missing NuGet reference | Ensure devpack .nupkg path is correct in nuget.config |
 | Frontend Builder | Incorrect field types in modal | Regenerate with corrected YAML types |
 | Aspire Integration | Port conflict | Kill orphaned processes, retry |
