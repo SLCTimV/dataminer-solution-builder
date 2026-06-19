@@ -278,10 +278,25 @@ report the results as a summary.
    ```
    - If fails → fix the issue (frontend bug or test needs updating)
 
-4. **Create new tests if needed**:
-   - If the change added a new field → add assertions for it in smoke.js and crud.spec.ts
-   - If the change added a new endpoint → add a new k6 test scenario
-   - If the change added a new UI feature → add a new Playwright test
+4. **Add or update tests for new functionality**:
+   Before running existing tests, assess whether the change introduced behavior that
+   is NOT covered by the current test suite. If so, write the new tests FIRST, then
+   run the full suite.
+
+   | Change | API Test Action | E2E Test Action |
+   |--------|----------------|-----------------|
+   | New model field | Add field assertion in smoke.js GET response checks | Add field to create/edit form tests in crud.spec.ts |
+   | New enum value | Add scenario testing the new value in smoke.js | Add dropdown option verification in crud.spec.ts |
+   | New API endpoint | Add full CRUD scenario for the new route in smoke.js | Add navigation + interaction tests if UI exposes it |
+   | New UI page/view | — | Add new spec file: navigation, rendering, interactions |
+   | New UI component (modal, filter, etc.) | — | Add interaction tests in the relevant spec file |
+   | New sub-object list | Add nested CRUD scenarios in smoke.js | Add sub-object table/form tests in crud.spec.ts |
+   | Changed validation rules | Update expected error responses in smoke.js | Update form validation tests in crud.spec.ts |
+   | New user flow | — | Add new spec file covering the full flow end-to-end |
+
+   Use the appropriate tester skill to write tests:
+   - API tests → load `dataminer-udapi-tester` skill
+   - E2E tests → load `dataminer-frontend-tester` skill
 
 #### 4b. Update Documentation
 
@@ -294,6 +309,12 @@ report the results as a summary.
    cd <SolutionName>Documentation
    docfx build docfx.json
    ```
+3. **Restart the Aspire docs resource** so the running site serves the updated `_site/`:
+   ```powershell
+   aspire resource docs restart --non-interactive
+   ```
+   The AppHost serves `_site/` directly via `docfx serve` — no code change is needed,
+   but the resource must be restarted to pick up the rebuilt files.
 
 #### 4c. Rebuild Installer Packages
 
