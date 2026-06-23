@@ -212,16 +212,19 @@ WriteFile(Path.Combine(outputDir, "fixtures", "app.fixture.ts"), $$"""
 import { test as base, type Page } from '@playwright/test';
 
 export const test = base.extend<{ authenticatedPage: Page }>({
-  authenticatedPage: async ({ page }, use) => {
+  authenticatedPage: async ({ page, context }, use) => {
+    // Set the DMAConnection cookie to simulate SAML auth (mock always accepts)
+    await context.addCookies([{
+      name: 'DMAConnection',
+      value: 'mock-connection-id',
+      domain: new URL(page.url() || process.env.BASE_URL || 'http://localhost:5173').hostname || 'localhost',
+      path: '/',
+    }]);
+
     await page.goto('/');
 
-    // Fill login form
-    await page.fill('#username', process.env.DM_USERNAME || 'admin');
-    await page.fill('#password', process.env.DM_PASSWORD || 'admin');
-    await page.click('button[type="submit"]');
-
-    // Wait for the data table to confirm successful login
-    await page.waitForSelector('.data-table', {
+    // Wait for app to render after auth bootstrap
+    await page.waitForSelector('.sidebar, .view-container, .table-wrapper, .empty-state', {
       timeout: Number(process.env.TEST_TIMEOUT || 30000),
     });
 
@@ -237,31 +240,27 @@ export { expect } from '@playwright/test';
 // ---------------------------------------------------------------------------
 Console.WriteLine("[5/7] Writing pages/login.page.ts...");
 WriteFile(Path.Combine(outputDir, "pages", "login.page.ts"), $$"""
-import { type Page, type Locator } from '@playwright/test';
+import { type Page } from '@playwright/test';
 
 export class LoginPage {
   readonly page: Page;
-  readonly usernameInput: Locator;
-  readonly passwordInput: Locator;
-  readonly submitButton: Locator;
-  readonly heading: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    this.usernameInput = page.locator('#username');
-    this.passwordInput = page.locator('#password');
-    this.submitButton = page.locator('button[type="submit"]');
-    this.heading = page.locator('h2');
   }
 
   async goto() {
     await this.page.goto('/');
   }
 
-  async login(username: string, password: string) {
-    await this.usernameInput.fill(username);
-    await this.passwordInput.fill(password);
-    await this.submitButton.click();
+  /** With SAML/cookie auth, login is handled via cookie injection in the fixture. */
+  async ensureAuthenticated(context: import('@playwright/test').BrowserContext) {
+    await context.addCookies([{
+      name: 'DMAConnection',
+      value: 'mock-connection-id',
+      domain: new URL(this.page.url() || 'http://localhost:5173').hostname || 'localhost',
+      path: '/',
+    }]);
   }
 }
 """);
@@ -296,9 +295,9 @@ export class TablePage {
 
   constructor(page: Page) {
     this.page = page;
-    this.table = page.locator('.data-table');
+    this.table = page.locator('.table-wrapper table');
     this.createButton = page.locator('button:has-text("Create"), button:has-text("Add"), button:has-text("New")');
-    this.rows = page.locator('.data-table tbody tr, .data-table .table-row');
+    this.rows = page.locator('.table-wrapper tbody tr');
     this.searchInput = page.locator('input[placeholder*="Search"], input[placeholder*="Filter"]');
     this.filterButton = page.locator('button:has-text("Filter")');
   }

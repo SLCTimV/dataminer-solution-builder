@@ -439,7 +439,15 @@ app.MapPost("/API/v1/Json.asmx/ExecuteAutomationScriptWithOutput", async (HttpCo
             string? name = p.Name?.ToString();
             string? value = p.Value?.ToString();
             if (name != null && value != null)
+            {
+                // Unwrap array-wrapped values: DataMiner Web API sends ["actualValue"]
+                if (value.StartsWith("[") && value.EndsWith("]"))
+                {
+                    var arr = JsonConvert.DeserializeObject<string[]>(value);
+                    if (arr != null && arr.Length > 0) value = arr[0];
+                }
                 parameters[name] = value;
+            }
         }
     }
 

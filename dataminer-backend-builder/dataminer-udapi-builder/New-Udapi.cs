@@ -218,9 +218,17 @@ void Step2_GenerateOnApiTrigger()
     sb.AppendLine("            var settings = new JsonSerializerSettings();");
     sb.AppendLine("            settings.Converters.Add(new QueryParametersConverter());");
     sb.AppendLine();
-    sb.AppendLine("            var apiTriggerInput = JsonConvert.DeserializeObject<ApiTriggerInput>(");
-    sb.AppendLine("                engine.GetScriptParam(\"ApiTriggerInput\").Value,");
-    sb.AppendLine("                settings);");
+    sb.AppendLine("            var raw = engine.GetScriptParam(\"ApiTriggerInput\").Value;");
+    sb.AppendLine("            ApiTriggerInput apiTriggerInput;");
+    sb.AppendLine("            if (raw.TrimStart().StartsWith(\"[\"))");
+    sb.AppendLine("            {");
+    sb.AppendLine("                var list = JsonConvert.DeserializeObject<string[]>(raw);");
+    sb.AppendLine("                apiTriggerInput = JsonConvert.DeserializeObject<ApiTriggerInput>(list[0], settings);");
+    sb.AppendLine("            }");
+    sb.AppendLine("            else");
+    sb.AppendLine("            {");
+    sb.AppendLine("                apiTriggerInput = JsonConvert.DeserializeObject<ApiTriggerInput>(raw, settings);");
+    sb.AppendLine("            }");
     sb.AppendLine();
     sb.AppendLine("            var apiTriggerOutput = OnApiTrigger(engine, apiTriggerInput);");
     sb.AppendLine();
@@ -475,7 +483,11 @@ void Step6_GenerateControllers()
         var mNameLower = char.ToLower(mName[0]) + mName[1..];
 
         // Route: multi-model uses {apiRoute}/{modelNameLower}s, single-model uses apiRoute directly
-        var controllerRoute = isMultiModel ? $"{apiRoute}/{mNameLower}s" : apiRoute;
+        // Avoid doubling if apiRoute already ends with the pluralized model name
+        var pluralSuffix = $"/{mNameLower}s";
+        var controllerRoute = isMultiModel
+            ? (apiRoute.EndsWith(pluralSuffix, StringComparison.OrdinalIgnoreCase) ? apiRoute : $"{apiRoute}{pluralSuffix}")
+            : apiRoute;
 
         // Default orderby: first DateTime property, or "Identifier"
         var defaultOrderBy = "Identifier";

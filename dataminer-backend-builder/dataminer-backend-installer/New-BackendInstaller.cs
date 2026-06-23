@@ -400,7 +400,9 @@ void Step3_GenerateUdapiInstaller()
         foreach (var model in models)
         {
             var mNameLower = char.ToLower(model.Name[0]) + model.Name[1..];
-            var route = $"{apiRoute}/{mNameLower}s";
+            // Avoid doubling if apiRoute already ends with the pluralized model name
+            var pluralSuffix = $"/{mNameLower}s";
+            var route = apiRoute.EndsWith(pluralSuffix, StringComparison.OrdinalIgnoreCase) ? apiRoute : $"{apiRoute}{pluralSuffix}";
             routes.Add((route, $"{apiName} - {model.Name}s", $"{apiDescription} Endpoint for {model.Name} objects."));
         }
     }

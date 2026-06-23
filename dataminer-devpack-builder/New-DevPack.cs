@@ -809,7 +809,7 @@ static string GetCSharpType(PropertyConfig prop)
     {
         "string" => "string",
         "DateTime" => "DateTime",
-        "int" => "int",
+        "int" => "long",  // DataMiner DOM only supports Int64, not Int32
         "double" => "double",
         "bool" => "bool",
         _ => prop.Type
