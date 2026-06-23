@@ -1,6 +1,7 @@
 # Test output
 ModelAnalyzerTest/
 TestFolder/
+tests/
 
 # .NET
 bin/

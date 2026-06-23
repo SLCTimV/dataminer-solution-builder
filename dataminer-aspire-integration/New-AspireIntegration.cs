@@ -368,15 +368,30 @@ else
     app.UseStaticFiles();
 }
 
-// Mock DataMiner auth
-app.MapGet("/auth/login", (HttpContext ctx) =>
+// Mock DataMiner SAML auth entry point (matches /auth/?url=... redirect from frontend)
+app.MapGet("/auth/", (HttpContext ctx) =>
 {
     var returnUrl = ctx.Request.Query["url"].FirstOrDefault() ?? "";
     ctx.Response.Cookies.Append("DMAConnection", "mock-connection-id", new CookieOptions
     {
         Path = "/", HttpOnly = false, SameSite = SameSiteMode.Lax
     });
-    return Results.Redirect($"/{returnUrl}");
+    var destination = string.IsNullOrEmpty(returnUrl) ? "/" : Uri.UnescapeDataString(returnUrl);
+    return Results.Redirect(destination);
+});
+
+// Mock DataMiner SAML logout
+app.MapGet("/auth/logout", (HttpContext ctx) =>
+{
+    ctx.Response.Cookies.Delete("DMAConnection");
+    var returnUrl = ctx.Request.Query["url"].FirstOrDefault() ?? "/";
+    return Results.Redirect(Uri.UnescapeDataString(returnUrl));
+});
+
+// Mock IsConnectionAlive
+app.MapPost("/API/v1/Json.asmx/IsConnectionAlive", () =>
+{
+    return Results.Content(JsonConvert.SerializeObject(new { d = true }), "application/json");
 });
 
 // Mock ConnectAppAndInfo
