@@ -127,7 +127,7 @@ void Step1_ScaffoldUdapiProject()
     Console.WriteLine();
     Console.WriteLine($"[1/8] Scaffolding UDAPI project: {udapiProjectName}");
 
-    Dotnet(backendSolutionDir, "new", "dataminer-automation-project",
+    Dotnet(backendSolutionDir, "new", "dataminer-user-defined-api-project",
         "-n", udapiProjectName,
         "-o", $".\\{udapiProjectName}",
         "--force");

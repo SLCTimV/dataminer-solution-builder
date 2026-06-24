@@ -30,8 +30,8 @@ Verify whether the different skills and `.cs` generator scripts reference/use th
 
 ### Action Items
 
-- [ ] **`New-Udapi.cs`** — Switch from `dataminer-automation-project` to `dataminer-user-defined-api-project`. This dedicated template likely includes `GenerateOpenApi`, proper UDAPI SDK references, and the `ApiTriggerInput` script parameter by default — eliminating all post-generation `.csproj` and XML patching.
-- [ ] **`New-Adhoc.cs`** — Switch from `dataminer-automation-project` to `dataminer-gqi-ad-hoc-data-source-project`. This should eliminate the manual `.csproj` overwrite entirely. Only add post-generation patches for solution-specific properties not covered by the template.
+- [x] **`New-Udapi.cs`** — Switch from `dataminer-automation-project` to `dataminer-user-defined-api-project`. This dedicated template includes `DataMinerType=UserDefinedApi`, proper SDK references, and the `OnApiTrigger` entry point. Post-generation patching is still needed for: `GenerateOpenApi=true`, `Skyline.DataMiner.SDM.UserDefinedApi` package, devpack package, and the custom Script class.
+- [x] **`New-Adhoc.cs`** — Switch from `dataminer-automation-project` to `dataminer-gqi-ad-hoc-data-source-project`. This eliminates the manual XML patching for `preCompile`/`libraryName` (template includes them). The `.csproj` overwrite is still needed to add the devpack package and `SDM.UserDefinedApi.Runtime`.
 - [ ] **Verify template defaults** — Before switching, scaffold each new template in a temp dir and compare the generated `.csproj` / XML against what the scripts currently produce. Document any gaps that still need post-generation patching.
 - [ ] **Update `dataminer-sdk` skill** — Add the newer templates (`dataminer-user-defined-api-project`, `dataminer-gqi-ad-hoc-data-source-project`) to the skill's template catalog if not already listed.
 
