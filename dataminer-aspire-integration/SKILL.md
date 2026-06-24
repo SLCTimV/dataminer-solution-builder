@@ -15,6 +15,8 @@ description: >
 argument-hint: >
   Provide --input-yaml (required). Optionally provide --output-dir, --udapi-dll,
   --devpack-dll, --openapi, --frontend, --nuget-feed for non-standard layouts.
+  Use --no-ai-coworker and/or --no-foundry to disable AI components.
+  Use --port-offset N to run multiple instances side-by-side.
 ---
 
 # Aspire Integration Skill
@@ -40,6 +42,10 @@ Before running this script:
    - `Skyline.DataMiner.Aspire.UdapiProxy.Hosting` (1.0.0)
    - `Skyline.DataMiner.Aspire.DllWatcher` (1.0.0)
    - `Skyline.DataMiner.Aspire.DllWatcher.Hosting` (1.0.0)
+   - `Skyline.DataMiner.Aspire.AiCoworker` (1.0.0) — unless `--no-ai-coworker`
+   - `Skyline.DataMiner.Aspire.AiCoworker.Hosting` (1.0.0) — unless `--no-ai-coworker`
+   - `Aspire.Hosting.Foundry` (13.4.0-preview) — unless `--no-foundry`
+6. **Foundry Local** must be installed and running — unless `--no-foundry` is passed
 
 ## Script
 
@@ -64,6 +70,9 @@ dotnet run dataminer-aspire-integration/New-AspireIntegration.cs -- --input-yaml
 | `--openapi`        | No       | `<udapi-dir>/openapi/openapi.yaml` | Path to the OpenAPI spec file |
 | `--frontend`       | No       | `<out>/<Name>Frontend`    | Path to the frontend project folder |
 | `--nuget-feed`     | No       | `C:\Users\Tim\source\nugets` | Path to the local NuGet feed containing Aspire packages |
+| `--no-ai-coworker` | No       | (enabled)                 | Disable the AI Coworker component entirely |
+| `--no-foundry`     | No       | (enabled)                 | Disable Foundry Local AI model server |
+| `--port-offset`    | No       | `0`                       | Offset all ports by N (for running multiple instances) |
 
 ## Steps Performed
 
@@ -108,7 +117,9 @@ Aspire AppHost (orchestrator)
 ├── dataminerwebapi   — ASP.NET Core mock DataMiner Web API + frontend static files
 ├── udapi             — REST proxy (HTTP → ApiTriggerInput) with Scalar OpenAPI UI
 ├── dllwatcher        — Monitors UDAPI + DevPack DLLs, triggers reload on change
-└── frontend          — npm dev server (Vite) with HMR via AddNpmApp
+├── frontend          — npm dev server (Vite) with HMR via AddNpmApp
+├── foundry           — Foundry Local AI model server (optional, --no-foundry to disable)
+└── aicoworker        — AI chat assistant powered by Foundry (optional, --no-ai-coworker to disable)
 ```
 
 ### Hot Reload Flow
@@ -134,6 +145,32 @@ dotnet run --project "<OutputDir>/<Name>Aspire/<Name>.AppHost" --launch-profile 
 
 # Frontend dev server (proxies /API + /auth to ApiService)
 # → http://localhost:5173
+
+# AI Coworker (if enabled)
+# → http://localhost:5190
+```
+
+### Multi-Instance Support
+
+All ports are offset by `--port-offset`. To run two instances side-by-side:
+
+```powershell
+# Instance 1 (default ports)
+dotnet run New-AspireIntegration.cs -- --input-yaml solution-a.yaml -o C:\temp\a
+
+# Instance 2 (ports shifted by +100)
+dotnet run New-AspireIntegration.cs -- --input-yaml solution-b.yaml -o C:\temp\b --port-offset 100
+# Dashboard → 15246, API → 5100, UDAPI → 5280, Frontend → 5273
+```
+
+### Disabling AI Components
+
+```powershell
+# No AI at all (no Foundry, no AI Coworker)
+dotnet run New-AspireIntegration.cs -- --input-yaml solution.yaml --no-foundry --no-ai-coworker
+
+# Keep Foundry but no AI Coworker UI
+dotnet run New-AspireIntegration.cs -- --input-yaml solution.yaml --no-ai-coworker
 ```
 
 ## NuGet Package Details
@@ -149,6 +186,9 @@ repository under `dataminer-aspire-integration/`:
 | `Skyline.DataMiner.Aspire.UdapiProxy.Hosting` | `AddUdapiProxy()` extension | library (net10.0) |
 | `Skyline.DataMiner.Aspire.DllWatcher` | File watcher executable | `tools/net10.0/` |
 | `Skyline.DataMiner.Aspire.DllWatcher.Hosting` | `AddDllWatcher()` extension | library (net10.0) |
+| `Skyline.DataMiner.Aspire.AiCoworker` | AI chat assistant executable | `tools/net10.0/` |
+| `Skyline.DataMiner.Aspire.AiCoworker.Hosting` | `AddAiCoworker()` extension | library (net10.0) |
+| `Aspire.Hosting.Foundry` | Foundry Local integration | library (net10.0) |
 
 ### Building Packages
 
