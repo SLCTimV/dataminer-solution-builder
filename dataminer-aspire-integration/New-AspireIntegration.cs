@@ -19,6 +19,9 @@ string? devpackDllArg  = null;
 string? openApiArg     = null;
 string? frontendArg    = null;
 string? nugetFeedArg   = null;
+bool noAiCoworker      = false;
+bool noFoundry         = false;
+int portOffset         = 0;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -44,6 +47,15 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--nuget-feed" when i + 1 < args.Length:
             nugetFeedArg = args[++i];
+            break;
+        case "--no-ai-coworker":
+            noAiCoworker = true;
+            break;
+        case "--no-foundry":
+            noFoundry = true;
+            break;
+        case "--port-offset" when i + 1 < args.Length:
+            portOffset = int.Parse(args[++i]);
             break;
         case "--help" or "-h":
             PrintUsage();
@@ -109,10 +121,29 @@ var docsSiteDir    = Path.Combine(docsDir, "_site");
 // NuGet feed location
 var nugetSource = nugetFeedArg ?? @"C:\Users\Tim\source\nugets";
 
-// Detect Foundry Local port (dynamic per session) — start it if not running
-var (foundryPort, foundryRunning) = DetectFoundryPort();
+// Port configuration (offset allows multiple instances side-by-side)
+var portAutomationHost = 7001 + portOffset;
+var portApiService     = 5000 + portOffset;
+var portUdapi          = 5180 + portOffset;
+var portFrontend       = 5173 + portOffset;
+var portAiCoworker     = 5190 + portOffset;
+var portDocs           = 5200 + portOffset;
+var portDashboard      = 15146 + portOffset;
 
-if (!foundryRunning)
+// Detect Foundry Local port (dynamic per session) — start it if not running
+string foundryPort = "49994";
+bool foundryRunning = false;
+
+if (!noFoundry)
+{
+    (foundryPort, foundryRunning) = DetectFoundryPort();
+}
+else
+{
+    Console.WriteLine("  Foundry Local disabled (--no-foundry)");
+}
+
+if (!noFoundry && !foundryRunning)
 {
     Console.WriteLine("  Foundry Local is not running — starting it...");
     if (!StartFoundryService())
@@ -143,7 +174,9 @@ Console.WriteLine($"  DevPack DLL: {devpackDllPath}");
 Console.WriteLine($"  OpenAPI    : {openApiPath}");
 Console.WriteLine($"  Frontend   : {frontendDir}");
 Console.WriteLine($"  NuGet feed : {nugetSource}");
-Console.WriteLine($"  Foundry    : port {foundryPort}");
+Console.WriteLine($"  Foundry    : {(noFoundry ? "disabled" : $"port {foundryPort}")}");
+Console.WriteLine($"  AI Coworker: {(noAiCoworker ? "disabled" : "enabled")}");
+Console.WriteLine($"  Port offset: {portOffset}");
 Console.WriteLine($"  Docs site  : {docsSiteDir}");
 Console.WriteLine();
 
@@ -346,7 +379,7 @@ builder.Services.AddHttpClient("automationhost", client =>
 {
     var url = builder.Configuration["services__automationhost__http__0"]
               ?? builder.Configuration["ScriptHost:HttpUrl"]
-              ?? "http://localhost:7001";
+              ?? "http://localhost:{{portAutomationHost}}";
     client.BaseAddress = new Uri(url);
     client.Timeout = TimeSpan.FromSeconds(120);
 });
@@ -491,14 +524,14 @@ File.WriteAllText(Path.Combine(apiServiceDir, "appsettings.json"), """
 """);
 
 Directory.CreateDirectory(Path.Combine(apiServiceDir, "Properties"));
-File.WriteAllText(Path.Combine(apiServiceDir, "Properties", "launchSettings.json"), """
+File.WriteAllText(Path.Combine(apiServiceDir, "Properties", "launchSettings.json"), $$"""
 {
   "profiles": {
     "http": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": false,
-      "applicationUrl": "http://localhost:5200",
+      "applicationUrl": "http://localhost:{{portApiService}}",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }
@@ -542,82 +575,98 @@ File.WriteAllText(Path.Combine(appHostDir, $"{solutionName}.AppHost.csproj"), $"
     <PackageReference Include="Skyline.DataMiner.Aspire.UdapiProxy" Version="1.0.0" />
     <PackageReference Include="Skyline.DataMiner.Aspire.UdapiProxy.Hosting" Version="1.0.0" />
     <PackageReference Include="Skyline.DataMiner.Aspire.DllWatcher" Version="1.0.0" />
-    <PackageReference Include="Skyline.DataMiner.Aspire.DllWatcher.Hosting" Version="1.0.0" />
-    <PackageReference Include="Skyline.DataMiner.Aspire.AiCoworker" Version="1.0.0" />
-    <PackageReference Include="Skyline.DataMiner.Aspire.AiCoworker.Hosting" Version="1.0.0" />
-    <PackageReference Include="Aspire.Hosting.Foundry" Version="13.4.0-preview.1.26281.18" />
+    <PackageReference Include="Skyline.DataMiner.Aspire.DllWatcher.Hosting" Version="1.0.0" />{(noAiCoworker ? "" : @"
+    <PackageReference Include=""Skyline.DataMiner.Aspire.AiCoworker"" Version=""1.0.0"" />
+    <PackageReference Include=""Skyline.DataMiner.Aspire.AiCoworker.Hosting"" Version=""1.0.0"" />")}{(noFoundry ? "" : @"
+    <PackageReference Include=""Aspire.Hosting.Foundry"" Version=""13.4.0-preview.1.26281.18"" />")}
   </ItemGroup>
 
 </Project>
 """);
 
-File.WriteAllText(Path.Combine(appHostDir, "AppHost.cs"), $$"""
-using Aspire.Hosting.Foundry;
-using Skyline.DataMiner.Aspire.AiCoworker.Hosting;
-using Skyline.DataMiner.Aspire.AutomationHost.Hosting;
-using Skyline.DataMiner.Aspire.DllWatcher.Hosting;
-using Skyline.DataMiner.Aspire.UdapiProxy.Hosting;
+// Build AppHost.cs with conditional sections
+var appHostUsings = new StringBuilder();
+appHostUsings.AppendLine("using Skyline.DataMiner.Aspire.AutomationHost.Hosting;");
+appHostUsings.AppendLine("using Skyline.DataMiner.Aspire.DllWatcher.Hosting;");
+appHostUsings.AppendLine("using Skyline.DataMiner.Aspire.UdapiProxy.Hosting;");
+if (!noFoundry) appHostUsings.AppendLine("using Aspire.Hosting.Foundry;");
+if (!noAiCoworker) appHostUsings.AppendLine("using Skyline.DataMiner.Aspire.AiCoworker.Hosting;");
 
-var builder = DistributedApplication.CreateBuilder(args);
+var appHostBody = new StringBuilder();
+appHostBody.AppendLine("var builder = DistributedApplication.CreateBuilder(args);");
+appHostBody.AppendLine();
 
-// AI: Foundry Local with Phi-4-mini for local AI assistant
-var foundry = builder.AddFoundry("foundry")
-    .RunAsFoundryLocal();
-
-var chat = foundry.AddDeployment("chat", FoundryModel.Local.Phi4Mini);
-
-// AutomationHost: runs the net48 script DLLs via HTTP
-builder.AddAutomationHost("automationhost", port: 7001);
-
-// ApiService: mock DataMiner Web API + frontend static files
-var apiService = builder.AddProject<Projects.{{solutionName}}_ApiService>("dataminerwebapi")
-    .WithEnvironment("ScriptHost__HttpUrl", "http://localhost:7001")
-    .WithHttpEndpoint(port: 5000)
-    .WithExternalHttpEndpoints()
-    .WithHttpHealthCheck("/health");
-
-// UdapiProxy: REST HTTP → ApiTriggerInput translation with OpenAPI/Scalar UI
-var udapi = builder.AddUdapiProxy("udapi", options =>
+if (!noFoundry)
 {
-    options.Port = 5180;
-    options.AutomationHostUrl = "http://localhost:7001";
-    options.ScriptDllPath = @"{{udapiDllPath}}";
-    options.OpenApiPath = @"{{openApiPath}}";
-    options.Title = "{{apiName}}";
-    options.RoutePrefix = "{{apiRoute}}";
-});
+    appHostBody.AppendLine("// AI: Foundry Local with Phi-4-mini for local AI assistant");
+    appHostBody.AppendLine("var foundry = builder.AddFoundry(\"foundry\")");
+    appHostBody.AppendLine("    .RunAsFoundryLocal();");
+    appHostBody.AppendLine();
+    appHostBody.AppendLine("var chat = foundry.AddDeployment(\"chat\", FoundryModel.Local.Phi4Mini);");
+    appHostBody.AppendLine();
+}
 
-// DllWatcher: watches UDAPI + DevPack DLLs and triggers AutomationHost reload
-builder.AddDllWatcher("dllwatcher", options =>
+appHostBody.AppendLine($"// AutomationHost: runs the net48 script DLLs via HTTP");
+appHostBody.AppendLine($"builder.AddAutomationHost(\"automationhost\", port: {portAutomationHost});");
+appHostBody.AppendLine();
+appHostBody.AppendLine($"// ApiService: mock DataMiner Web API + frontend static files");
+appHostBody.AppendLine($"var apiService = builder.AddProject<Projects.{solutionName}_ApiService>(\"dataminerwebapi\")");
+appHostBody.AppendLine($"    .WithEnvironment(\"ScriptHost__HttpUrl\", \"http://localhost:{portAutomationHost}\")");
+appHostBody.AppendLine($"    .WithHttpEndpoint(port: {portApiService})");
+appHostBody.AppendLine($"    .WithExternalHttpEndpoints()");
+appHostBody.AppendLine($"    .WithHttpHealthCheck(\"/health\");");
+appHostBody.AppendLine();
+appHostBody.AppendLine($"// UdapiProxy: REST HTTP → ApiTriggerInput translation with OpenAPI/Scalar UI");
+appHostBody.AppendLine($"var udapi = builder.AddUdapiProxy(\"udapi\", options =>");
+appHostBody.AppendLine($"{{");
+appHostBody.AppendLine($"    options.Port = {portUdapi};");
+appHostBody.AppendLine($"    options.AutomationHostUrl = \"http://localhost:{portAutomationHost}\";");
+appHostBody.AppendLine($"    options.ScriptDllPath = @\"{udapiDllPath}\";");
+appHostBody.AppendLine($"    options.OpenApiPath = @\"{openApiPath}\";");
+appHostBody.AppendLine($"    options.Title = \"{apiName}\";");
+appHostBody.AppendLine($"    options.RoutePrefix = \"{apiRoute}\";");
+appHostBody.AppendLine($"}});");
+appHostBody.AppendLine();
+appHostBody.AppendLine($"// DllWatcher: watches UDAPI + DevPack DLLs and triggers AutomationHost reload");
+appHostBody.AppendLine($"builder.AddDllWatcher(\"dllwatcher\", options =>");
+appHostBody.AppendLine($"{{");
+appHostBody.AppendLine($"    options.AutomationHostUrl = \"http://localhost:{portAutomationHost}\";");
+appHostBody.AppendLine($"    options.ScriptDlls.Add(@\"{udapiDllPath}\");");
+appHostBody.AppendLine($"    options.BackendDlls.Add(@\"{devpackDllPath}\");");
+appHostBody.AppendLine($"}});");
+appHostBody.AppendLine();
+appHostBody.AppendLine($"// Frontend: npm dev server with hot reload (Aspire restarts on changes)");
+appHostBody.AppendLine($"builder.AddNpmApp(\"frontend\", @\"{frontendDir}\", \"dev\")");
+appHostBody.AppendLine($"    .WithReference(apiService)");
+appHostBody.AppendLine($"    .WithHttpEndpoint(targetPort: {portFrontend})");
+appHostBody.AppendLine($"    .WithExternalHttpEndpoints();");
+
+if (!noAiCoworker)
 {
-    options.AutomationHostUrl = "http://localhost:7001";
-    options.ScriptDlls.Add(@"{{udapiDllPath}}");
-    options.BackendDlls.Add(@"{{devpackDllPath}}");
-});
+    appHostBody.AppendLine();
+    appHostBody.AppendLine($"// AI Coworker: local AI chat assistant powered by Foundry Local");
+    appHostBody.AppendLine($"// NOTE: Foundry Local port is dynamic — detect with: foundry service status");
+    appHostBody.AppendLine($"builder.AddAiCoworker(\"aicoworker\", options =>");
+    appHostBody.AppendLine($"{{");
+    appHostBody.AppendLine($"    options.Port = {portAiCoworker};");
+    appHostBody.AppendLine($"    options.UdapiUrl = \"http://localhost:{portUdapi}\";");
+    appHostBody.AppendLine($"    options.FoundryEndpoint = \"http://127.0.0.1:{foundryPort}/v1\";");
+    appHostBody.AppendLine($"    options.FoundryModel = \"phi-4-mini-instruct-openvino-gpu:2\";");
+    appHostBody.AppendLine($"    options.ConfigPath = \"./aicoworker-config.json\";");
+    appHostBody.AppendLine($"}});");
+}
 
-// Frontend: npm dev server with hot reload (Aspire restarts on changes)
-builder.AddNpmApp("frontend", @"{{frontendDir}}", "dev")
-    .WithReference(apiService)
-    .WithHttpEndpoint(targetPort: 5173)
-    .WithExternalHttpEndpoints();
+appHostBody.AppendLine();
+appHostBody.AppendLine($"// Documentation: DocFX site served on port {portDocs}");
+appHostBody.AppendLine($"builder.AddExecutable(\"docs\", \"docfx\", @\"{docsDir}\", \"serve\", \"_site\", \"--port\", \"{portDocs}\")");
+appHostBody.AppendLine($"    .WithHttpEndpoint(targetPort: {portDocs})");
+appHostBody.AppendLine($"    .WithExternalHttpEndpoints();");
+appHostBody.AppendLine();
+appHostBody.AppendLine("builder.Build().Run();");
 
-// AI Coworker: local AI chat assistant powered by Foundry Local
-// NOTE: Foundry Local port is dynamic — detect with: foundry service status
-builder.AddAiCoworker("aicoworker", options =>
-{
-    options.Port = 5190;
-    options.UdapiUrl = "http://localhost:5180";
-    options.FoundryEndpoint = "http://127.0.0.1:{{foundryPort}}/v1";
-    options.FoundryModel = "phi-4-mini-instruct-openvino-gpu:2";
-    options.ConfigPath = "./aicoworker-config.json";
-});
-
-// Documentation: DocFX site served on port 5200
-builder.AddExecutable("docs", "docfx", @"{{docsDir}}", "serve", "_site", "--port", "5200")
-    .WithHttpEndpoint(targetPort: 5200)
-    .WithExternalHttpEndpoints();
-
-builder.Build().Run();
+File.WriteAllText(Path.Combine(appHostDir, "AppHost.cs"), $"""
+{appHostUsings}
+{appHostBody}
 """);
 
 // If docs _site doesn't exist, remove the docs block from AppHost.cs
@@ -651,7 +700,7 @@ File.WriteAllText(Path.Combine(appHostDir, "appsettings.json"), """
 }
 """);
 
-File.WriteAllText(Path.Combine(appHostDir, "Properties", "launchSettings.json"), """
+File.WriteAllText(Path.Combine(appHostDir, "Properties", "launchSettings.json"), $$"""
 {
   "$schema": "https://json.schemastore.org/launchsettings.json",
   "profiles": {
@@ -659,7 +708,7 @@ File.WriteAllText(Path.Combine(appHostDir, "Properties", "launchSettings.json"),
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,
-      "applicationUrl": "http://localhost:15146",
+      "applicationUrl": "http://localhost:{{portDashboard}}",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "DOTNET_ENVIRONMENT": "Development",
@@ -680,7 +729,7 @@ File.WriteAllText(Path.Combine(apiServiceDir, "appsettings.Development.json"), $
     }
   },
   "ScriptHost": {
-    "HttpUrl": "http://localhost:7001",
+    "HttpUrl": "http://localhost:{{portAutomationHost}}",
     "Scripts": {
       "{{udapiProjectName}}": "{{udapiDllForward}}"
     },
@@ -713,20 +762,20 @@ if (File.Exists(viteConfigPath))
     else
     {
         // Rewrite the file with the server.proxy block injected
-        var serverBlock = """
-  server: {
-    port: 5173,
-    proxy: {
-      '/API': {
-        target: 'http://localhost:5000',
+        var serverBlock = $"""
+  server: {{
+    port: {portFrontend},
+    proxy: {{
+      '/API': {{
+        target: 'http://localhost:{portApiService}',
         changeOrigin: true,
-      },
-      '/auth': {
-        target: 'http://localhost:5000',
+      }},
+      '/auth': {{
+        target: 'http://localhost:{portApiService}',
         changeOrigin: true,
-      },
-    },
-  },
+      }},
+    }},
+  }},
 """;
         // Strategy: insert before the final `});` that closes defineConfig({...})
         var idx = viteContent.LastIndexOf("});");
@@ -734,7 +783,7 @@ if (File.Exists(viteConfigPath))
         {
             viteContent = viteContent[..idx] + serverBlock + viteContent[idx..];
             File.WriteAllText(viteConfigPath, viteContent);
-            Console.WriteLine($"  Patched {Path.GetFileName(viteConfigPath)} with API proxy → http://localhost:5000");
+            Console.WriteLine($"  Patched {Path.GetFileName(viteConfigPath)} with API proxy → http://localhost:{portApiService}");
         }
         else
         {
@@ -772,6 +821,8 @@ Dotnet(aspireDir, "sln", $"{solutionName}.slnx", "add",
 // ---------------------------------------------------------------------------
 // Step 8: Generate aicoworker-config.json for AI assistant
 // ---------------------------------------------------------------------------
+if (!noAiCoworker)
+{
 Console.WriteLine("[8/8] Generating aicoworker-config.json...");
 
 var configModels = new List<string>();
@@ -858,6 +909,11 @@ var aiConfigJson = $$"""
 
 File.WriteAllText(Path.Combine(appHostDir, "aicoworker-config.json"), aiConfigJson);
 Console.WriteLine($"  Written: {solutionName}.AppHost/aicoworker-config.json");
+}
+else
+{
+    Console.WriteLine("[8/8] AI Coworker disabled — skipping aicoworker-config.json");
+}
 
 // ---------------------------------------------------------------------------
 // Done
@@ -869,17 +925,24 @@ Console.WriteLine("To run:");
 Console.WriteLine($"  dotnet run --project \"{Path.Combine(aspireDir, $"{solutionName}.AppHost")}\" --launch-profile http");
 Console.WriteLine();
 Console.WriteLine("Resources in Aspire dashboard:");
-Console.WriteLine("  • automationhost — Runs net48 script DLLs (AutomationHost.exe)");
-Console.WriteLine("  • dataminerwebapi — Mock DataMiner Web API + frontend static files");
-Console.WriteLine("  • udapi          — REST proxy with Scalar OpenAPI UI");
+Console.WriteLine($"  • automationhost — Runs net48 script DLLs (port {portAutomationHost})");
+Console.WriteLine($"  • dataminerwebapi — Mock DataMiner Web API + frontend static files (port {portApiService})");
+Console.WriteLine($"  • udapi          — REST proxy with Scalar OpenAPI UI (port {portUdapi})");
 Console.WriteLine("  • dllwatcher     — Monitors UDAPI + DevPack DLLs for hot reload");
-Console.WriteLine("  • frontend       — npm dev server (Vite) with HMR");
-Console.WriteLine("  • foundry        — Foundry Local AI model server (phi-4-mini)");
-Console.WriteLine("  • aicoworker     — AI chat assistant (port 5190)");
+Console.WriteLine($"  • frontend       — npm dev server (Vite) with HMR (port {portFrontend})");
+if (!noFoundry)
+    Console.WriteLine($"  • foundry        — Foundry Local AI model server (port {foundryPort})");
+if (!noAiCoworker)
+    Console.WriteLine($"  • aicoworker     — AI chat assistant (port {portAiCoworker})");
 if (hasDocsSite)
-    Console.WriteLine("  • docs           — DocFX documentation site (port 5200)");
+    Console.WriteLine($"  • docs           — DocFX documentation site (port {portDocs})");
 else
     Console.WriteLine("  • docs           — (skipped: run 'docfx build' in Documentation folder first)");
+if (portOffset > 0)
+{
+    Console.WriteLine();
+    Console.WriteLine($"  Port offset: +{portOffset} (allows running alongside default instance)");
+}
 Console.WriteLine();
 Console.WriteLine("Hot reload:");
 Console.WriteLine("  • Edit frontend files → browser refreshes automatically (Vite HMR)");
@@ -996,6 +1059,9 @@ static void PrintUsage()
           --openapi        Path to the OpenAPI spec (YAML or JSON)
           --frontend       Path to the frontend app folder (with package.json)
           --nuget-feed     Path to local NuGet feed (default: C:\Users\Tim\source\nugets)
+          --no-ai-coworker Disable the AI Coworker component
+          --no-foundry     Disable Foundry Local (AI model server)
+          --port-offset    Offset all ports by N (for running multiple instances)
       -h, --help           Show this help
 
     If paths are not provided, they are derived from convention:
@@ -1008,7 +1074,13 @@ static void PrintUsage()
       • Skyline.DataMiner.Aspire.AutomationHost + .Hosting
       • Skyline.DataMiner.Aspire.UdapiProxy + .Hosting
       • Skyline.DataMiner.Aspire.DllWatcher + .Hosting
-      • Skyline.DataMiner.Aspire.AiCoworker + .Hosting
+      • Skyline.DataMiner.Aspire.AiCoworker + .Hosting (unless --no-ai-coworker)
+      • Aspire.Hosting.Foundry (unless --no-foundry)
+
+    Multi-instance:
+      Use --port-offset to shift all ports. Example:
+        Instance 1: default ports (no offset)
+        Instance 2: --port-offset 100 (ports shift by +100)
     """);
 }
 
