@@ -274,7 +274,13 @@ Output: <OutputDir>/SDM<Domain>Documentation/
 - ApiService (mock DataMiner Web API + auth mock + script proxy)
 - Vite frontend dev server
 - DocFX documentation site (if `_site` exists)
-- Foundry Local + AI Coworker (local AI assistant)
+- Foundry Local + AI Coworker (optional — only if user requests AI features)
+
+**Flags**:
+- Always pass `--port-offset 0` (explicit default — avoids hardcoded ports confusion)
+- Ask the user if they want AI Coworker + Foundry Local before running. If not:
+  - Pass `--no-ai-coworker --no-foundry` to skip AI components
+- For multi-instance scenarios, use `--port-offset N` to avoid port conflicts
 
 **Input**: YAML + backend DLLs + devpack DLLs + openapi.yaml + frontend path
 **Validation**: `dotnet build` of the AppHost succeeds

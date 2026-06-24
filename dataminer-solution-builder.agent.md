@@ -55,7 +55,7 @@ Execute the 8 stages in order:
 3. **Backend Builder** — generate UDAPI + GQI + Installer + **Assistant MD Files** (agent-guided content)
 4. **Frontend Builder** — use the `dataminer-frontend-builder` skill (which delegates to DataMiner App Builder agent)
 5. **Documentation Builder** — scaffold DocFX site, fill content, run `docfx metadata` + `docfx build`, and package into .dmapp
-6. **Aspire Integration** — generate local dev environment (includes docs site if built)
+6. **Aspire Integration** — generate local dev environment (includes docs site if built). **Always ask** the user whether to include the AI Coworker and Foundry Local before running. Pass `--no-ai-coworker --no-foundry` if declined.
 7. **Solution Tester** — scaffold and run tests (smoke + E2E)
 8. **Validation & Tutorial Generation** — verify everything works, capture UI screenshots, extend docs with tutorials
 
