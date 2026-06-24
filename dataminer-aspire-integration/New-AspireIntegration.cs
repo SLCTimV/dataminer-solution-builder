@@ -762,20 +762,20 @@ if (File.Exists(viteConfigPath))
     else
     {
         // Rewrite the file with the server.proxy block injected
-        var serverBlock = $"""
-  server: {{
-    port: {portFrontend},
-    proxy: {{
-      '/API': {{
-        target: 'http://localhost:{portApiService}',
+        var serverBlock = $$"""
+  server: {
+    port: {{portFrontend}},
+    proxy: {
+      '/API': {
+        target: 'http://localhost:{{portApiService}}',
         changeOrigin: true,
-      }},
-      '/auth': {{
-        target: 'http://localhost:{portApiService}',
+      },
+      '/auth': {
+        target: 'http://localhost:{{portApiService}}',
         changeOrigin: true,
-      }},
-    }},
-  }},
+      },
+    },
+  },
 """;
         // Strategy: insert before the final `});` that closes defineConfig({...})
         var idx = viteContent.LastIndexOf("});");
